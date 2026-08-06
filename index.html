@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MPPT モニター</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 16px;
+      background: #f4f4f9;
+      text-align: center;
+      color: #333;
+      margin: 0;
+    }
+    h1 { font-size: 1.4em; margin-top: 10px; margin-bottom: 15px; }
+    
+    .warning-banner {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.85em;
+      margin-bottom: 15px;
+      text-align: left;
+      display: none;
+    }
+    
+    button {
+      padding: 14px 28px;
+      font-size: 1em;
+      font-weight: bold;
+      border: none;
+      background: #28a745;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 320px;
+    }
+    button:disabled { background: #888; }
+    
+    .card {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      margin: 12px auto;
+      max-width: 320px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+      text-align: left;
+    }
+    .label { font-size: 0.85em; color: #666; margin-bottom: 6px; font-weight: bold; }
+    .hex-box {
+      font-family: monospace;
+      font-size: 0.8em;
+      word-break: break-all;
+      color: #333;
+      background: #f0f0f0;
+      padding: 8px;
+      border-radius: 6px;
+      min-height: 48px;
+    }
+    .value { font-size: 1.8em; font-weight: bold; color: #007bff; text-align: center; }
+    #status { margin-top: 10px; font-size: 0.85em; color: #555; }
+    .log-box {
+      font-family: monospace;
+      font-size: 0.75em;
+      color: #555;
+      background: #e9ecef;
+      padding: 8px;
+      border-radius: 6px;
+      height: 100px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>MPPT モニター</h1>
+
+  <div id="secureWarning" class="warning-banner">
+    ⚠️ <strong>HTTPS環境ではありません</strong><br>
+    現在のアクセス方法（<code>content://</code> や <code>http://</code>）ではセキュリティ制約によりデータ受信が動作しません。<a href="https://glitch.com" target="_blank">Glitch</a> などのHTTPS環境から開いてください。
+  </div>
+
+  <button id="connectBtn">MPPTに接続</button>
+  <div id="status">接続待機中</div>
+
+  <div class="card">
+    <div class="label">受信データ (HEX)</div>
+    <div id="hexValue" class="hex-box">--</div>
+  </div>
+
+  <div class="card">
+    <div class="label">解析値 (照合用)</div>
+    <div id="parsedValue" class="value">--</div>
+  </div>
+
+  <div class="card">
+    <div class="label">動作ログ</div>
+    <div id="logBox" class="log-box"></div>
+  </div>
+
+  <script>
+    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const CHAR_UUID_1 = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const CHAR_UUID_2 = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    const connectBtn = document.getElementById('connectBtn');
+    const statusDiv = document.getElementById('status');
+    const logBox = document.getElementById('logBox');
+
+    // HTTPS判定（保護された通信環境か確認）
+    if (!window.isSecureContext) {
+      document.getElementById('secureWarning').style.display = 'block';
+    }
+
+    function log(msg) {
+      const now = new Date().toLocaleTimeString();
+      logBox.innerText += `[${now}] ${msg}\n`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      try {
+        connectBtn.disabled = true;
+        statusDiv.innerText = 'デバイスを検索中...';
+        log('スキャン開始...');
+
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [SERVICE_UUID]
+        });
+
+        log(`デバイス選択: ${device.name || device.id}`);
+
+        let server = null;
+        for (let i = 1; i <= 3; i++) {
+          try {
+            statusDiv.innerText = `接続中... (${i}/3)`;
+            log(`GATT接続試行 (${i}/3)...`);
+            server = await device.gatt.connect();
+            break;
+          } catch (e) {
+            log(`接続失敗 (${i}): ${e.message}`);
+            if (i === 3) throw e;
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+
+        log('GATT接続成功');
+        statusDiv.innerText = 'サービスを取得中...';
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        statusDiv.innerText = '通知サービスを設定中...';
+        await setupNotifications(service, CHAR_UUID_1);
+        await setupNotifications(service, CHAR_UUID_2);
+
+        statusDiv.innerText = '接続成功！データ待ち...';
+        log('データ受信準備が完了しました');
+        connectBtn.style.background = '#007bff';
+        connectBtn.innerText = '接続済み';
+      } catch (error) {
+        statusDiv.innerText = 'エラー発生';
+        log(`エラー: ${error}`);
+        alert('エラー: ' + error);
+        connectBtn.disabled = false;
+      }
+    });
+
+    async function setupNotifications(service, uuid) {
+      try {
+        const char = await service.getCharacteristic(uuid);
+        log(`キャラクタリスティック取得: ${uuid.substring(0, 8)}...`);
+        char.addEventListener('characteristicvaluechanged', handleData);
+        await char.startNotifications();
+        log(`Notification有効化成功: ${uuid.substring(0, 8)}...`);
+      } catch (e) {
+        log(`Notification有効化スキップ (${uuid.substring(0, 8)}...): ${e.message}`);
+      }
+    }
+
+    function handleData(event) {
+      const value = event.target.value;
+      const bytes = new Uint8Array(value.buffer);
+      
+      const hexString = Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+        .join(' ');
+      
+      document.getElementById('hexValue').innerText = hexString;
+      log(`データ受信 (${bytes.length} bytes)`);
+
+      // Modbus RTU (01 03...) の数値変換処理
+      if (bytes[0] === 0x01 && bytes[1] === 0x03 && bytes.length >= 13) {
+        const rawVal = (bytes[11] << 8) | bytes[12];
+        document.getElementById('parsedValue').innerText = (rawVal / 100) + ' V';
+      }
+    }
+  </script>
+</body>
+</html>
