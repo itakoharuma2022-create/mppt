@@ -15,6 +15,18 @@
     }
     h1 { font-size: 1.4em; margin-top: 10px; margin-bottom: 15px; }
     
+    .warning-banner {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.85em;
+      margin-bottom: 15px;
+      text-align: left;
+      display: none;
+    }
+    
     button {
       padding: 14px 28px;
       font-size: 1em;
@@ -69,6 +81,11 @@
 
   <h1>MPPT モニター</h1>
 
+  <div id="secureWarning" class="warning-banner">
+    ⚠️ <strong>HTTPS環境ではありません</strong><br>
+    現在のアクセス方法（<code>content://</code> や <code>http://</code>）ではセキュリティ制約によりデータ受信が動作しません。GitHub Pages などの HTTPS 環境からアクセスしてください。
+  </div>
+
   <button id="connectBtn">MPPTに接続</button>
   <div id="status">接続待機中</div>
 
@@ -78,7 +95,7 @@
   </div>
 
   <div class="card">
-    <div class="label">解析値 (照合用)</div>
+    <div class="label">解析値 (バッテリー電圧)</div>
     <div id="parsedValue" class="value">--</div>
   </div>
 
@@ -98,6 +115,11 @@
 
     let txCharacteristic = null;
     let pollInterval = null;
+
+    // HTTPS環境判定
+    if (!window.isSecureContext) {
+      document.getElementById('secureWarning').style.display = 'block';
+    }
 
     function log(msg) {
       const now = new Date().toLocaleTimeString();
@@ -134,13 +156,13 @@
         statusDiv.innerText = 'サービスを取得中...';
         const service = await server.getPrimaryService(SERVICE_UUID);
 
-        // 1. データ受信(RX)の設定
+        // 1. データ受信(RX)の通知(Notify)設定
         const rxChar = await service.getCharacteristic(RX_CHAR_UUID);
         rxChar.addEventListener('characteristicvaluechanged', handleData);
         await rxChar.startNotifications();
         log('受信(RX)通知設定完了');
 
-        // 2. コマンド送信(TX)の設定
+        // 2. コマンド送信(TX)の準備
         txCharacteristic = await service.getCharacteristic(TX_CHAR_UUID);
         log('送信(TX)準備完了');
 
@@ -148,7 +170,7 @@
         connectBtn.style.background = '#007bff';
         connectBtn.innerText = '接続済み';
 
-        // 3. 1秒ごとにMPPTへ「データ送信要求コマンド」を送る
+        // 3. 1.5秒周期でMPPTにデータ要求コマンドを自動送信
         startPolling();
 
       } catch (error) {
@@ -158,17 +180,47 @@
         connectBtn.disabled = false;
       }
     });
-　
-    // MPPTへデータ読込コマンド(Modbus RTU query)を送信
+
+    // MPPTへデータ読み出しコマンド（Modbus RTU query）を定期送信
     function startPolling() {
       if (pollInterval) clearInterval(pollInterval);
 
-      // 標準的な Modbus RTU 読み出しコマンド (レジスタ 0x0000 から 10個分読み出し)
-      // 01(アドレス) 03(機能) 00 00(開始位置) 00 0A(個数) C5 CD(CRCチェックサム)
+      // Modbus RTU 読み出しコマンド (アドレス01 / 機能03 / レジスタ0x0000から10個 / CRC: C5 CD)
       const command = new Uint8Array([0x01, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0xCD]);
 
       pollInterval = setInterval(async () => {
         if (!txCharacteristic) return;
         try {
-          // コマンド書き込み
-          if (txCharacteristic.writeValueWithoutResponse
+          if (txCharacteristic.writeValueWithoutResponse) {
+            await txCharacteristic.writeValueWithoutResponse(command);
+          } else {
+            await txCharacteristic.writeValue(command);
+          }
+          log('データ要求コマンド送信');
+        } catch (e) {
+          log(`送信エラー: ${e.message}`);
+        }
+      }, 1500);
+    }
+
+    // データ受信処理
+    function handleData(event) {
+      const value = event.target.value;
+      const bytes = new Uint8Array(value.buffer);
+      
+      const hexString = Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+        .join(' ');
+      
+      document.getElementById('hexValue').innerText = hexString;
+      log(`データ受信 (${bytes.length} bytes)`);
+
+      // Modbus RTU 応答解析 (01 03 ...)
+      if (bytes[0] === 0x01 && bytes[1] === 0x03 && bytes.length >= 13) {
+        const rawVal = (bytes[11] << 8) | bytes[12];
+        document.getElementById('parsedValue').innerText = (rawVal / 100) + ' V';
+      }
+    }
+  </script>
+</body>
+</html>
