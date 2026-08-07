@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MPPT 接続診断ツール (Modbus最適化版)</title>
+  <title>MPPT 接続診断 (CRC自動計算版)</title>
   <style>
     body { font-family: sans-serif; padding: 16px; background: #f0f2f5; margin: 0; text-align: center; }
     h1 { font-size: 1.3em; color: #333; }
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-  <h1>MPPT 接続診断 (最適化版)</h1>
+  <h1>MPPT 接続診断 (CRC版)</h1>
 
   <div class="card">
     <button id="connectBtn" class="btn-connect">1. デバイスに接続</button>
@@ -28,7 +28,7 @@
   </div>
 
   <div class="card">
-    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 8px;">2. 新コマンド送信テスト</div>
+    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 8px;">2. コマンド送信テスト</div>
     <div class="flex-btns">
       <button id="btnCmd1" class="btn-send" disabled>パターンA</button>
       <button id="btnCmd2" class="btn-send" disabled>パターンB</button>
@@ -52,14 +52,28 @@
     const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
     let targetWriteChar = null;
 
-    // 今回のログから推測した、データが存在する可能性が高いレジスタへの要求コマンド
-    const cmds = {
-      // パターンA: レジスタ 0100 から 10個要求 (SRNE系によくある仕様)
-      cmd1: new Uint8Array([0x01, 0x03, 0x01, 0x00, 0x00, 0x0A, 0xC5, 0xF7]),
-      // パターンB: レジスタ 3100 から 10個要求 (EPEver系によくある仕様)
-      cmd2: new Uint8Array([0x01, 0x03, 0x31, 0x00, 0x00, 0x0A, 0xCB, 0xF6]),
-      // パターンC: ログにあった「20バイト返却(0x14)」を強制的に引き出す広範囲要求
-      cmd3: new Uint8Array([0x01, 0x03, 0x00, 0x00, 0x00, 0x14, 0x45, 0xC5])
+    // Modbusのパスワード(CRC16)を自動計算して正しい順序で付与する関数
+    function appendCRC(dataArray) {
+      let crc = 0xFFFF;
+      for (let i = 0; i < dataArray.length; i++) {
+        crc ^= dataArray[i];
+        for (let j = 0; j < 8; j++) {
+          if ((crc & 1) !== 0) {
+            crc = (crc >> 1) ^ 0xA001;
+          } else {
+            crc = crc >> 1;
+          }
+        }
+      }
+      // Modbusルールに従い、下位バイト→上位バイトの順でくっつける
+      return new Uint8Array([...dataArray, crc & 0xFF, (crc >> 8) & 0xFF]);
+    }
+
+    // 基本コマンド (パスワード計算前)
+    const baseCmds = {
+      cmd1: [0x01, 0x03, 0x01, 0x00, 0x00, 0x0A], // パターンA
+      cmd2: [0x01, 0x03, 0x31, 0x00, 0x00, 0x0A], // パターンB
+      cmd3: [0x01, 0x03, 0x00, 0x00, 0x00, 0x14]  // パターンC
     };
 
     function log(msg) {
@@ -109,23 +123,26 @@
       }
     });
 
-    async function sendCommand(cmdName, data) {
+    async function sendCommand(cmdName, baseData) {
       if (!targetWriteChar) return;
       try {
-        log(`送信: ${cmdName}`);
+        const fullCmd = appendCRC(baseData); // ここでパスワードをくっつける
+        const hexStr = Array.from(fullCmd).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+        log(`送信: ${cmdName} (${hexStr})`);
+        
         if (targetWriteChar.properties.writeWithoutResponse) {
-          await targetWriteChar.writeValueWithoutResponse(data);
+          await targetWriteChar.writeValueWithoutResponse(fullCmd);
         } else {
-          await targetWriteChar.writeValue(data);
+          await targetWriteChar.writeValue(fullCmd);
         }
       } catch (error) {
         log(`送信失敗: ${error.message}`);
       }
     }
 
-    document.getElementById('btnCmd1').addEventListener('click', () => sendCommand('パターンA (0100)', cmds.cmd1));
-    document.getElementById('btnCmd2').addEventListener('click', () => sendCommand('パターンB (3100)', cmds.cmd2));
-    document.getElementById('btnCmd3').addEventListener('click', () => sendCommand('パターンC (広範囲)', cmds.cmd3));
+    document.getElementById('btnCmd1').addEventListener('click', () => sendCommand('パターンA', baseCmds.cmd1));
+    document.getElementById('btnCmd2').addEventListener('click', () => sendCommand('パターンB', baseCmds.cmd2));
+    document.getElementById('btnCmd3').addEventListener('click', () => sendCommand('パターンC', baseCmds.cmd3));
 
     function handleData(event) {
       const bytes = new Uint8Array(event.target.value.buffer);
@@ -133,15 +150,10 @@
       document.getElementById('hexValue').innerText = hexString;
       log(`★受信: ${hexString}`);
 
-      // 受信したデータの中に、ログで確認したバッテリー電圧(0x4B = 7.5V)らしい箇所があれば抽出する
       if (bytes.length >= 7) {
-        // パターンA/Bなどの一般的な配置を想定した簡易パース
         let rawVal = (bytes[3] << 8) | bytes[4]; 
-        
-        // もしデータの中に '4B' (75) に近い数字があれば、それを優先して表示してみる（デバッグ用）
         for(let i = 3; i < bytes.length - 1; i+=2) {
             let tempVal = (bytes[i] << 8) | bytes[i+1];
-            // 7.0V 〜 30.0V の間ならバッテリー電圧と仮定して表示更新
             if(tempVal >= 70 && tempVal <= 300) {
                 rawVal = tempVal;
                 break;
