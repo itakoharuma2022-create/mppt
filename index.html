@@ -3,170 +3,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MPPT モニター</title>
+  <title>MPPT 接続診断ツール</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      padding: 16px; background: #f4f4f9; text-align: center; color: #333; margin: 0;
-    }
-    h1 { font-size: 1.4em; margin-top: 10px; margin-bottom: 15px; }
-    button {
-      padding: 14px 28px; font-size: 1em; font-weight: bold; border: none;
-      background: #28a745; color: white; border-radius: 8px; cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: 100%; max-width: 320px;
-    }
-    button:disabled { background: #888; }
-    .card {
-      background: white; padding: 16px; border-radius: 12px; margin: 12px auto;
-      max-width: 320px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); text-align: left;
-    }
-    .label { font-size: 0.85em; color: #666; margin-bottom: 6px; font-weight: bold; }
-    .hex-box {
-      font-family: monospace; font-size: 0.8em; word-break: break-all;
-      color: #333; background: #f0f0f0; padding: 8px; border-radius: 6px; min-height: 48px;
-    }
-    .value { font-size: 1.8em; font-weight: bold; color: #007bff; text-align: center; }
-    #status { margin-top: 10px; font-size: 0.85em; color: #555; }
-    .log-box {
-      font-family: monospace; font-size: 0.75em; color: #555; background: #e9ecef;
-      padding: 8px; border-radius: 6px; height: 140px; overflow-y: auto; white-space: pre-wrap;
-    }
+    body { font-family: sans-serif; padding: 16px; background: #f0f2f5; margin: 0; text-align: center; }
+    h1 { font-size: 1.3em; color: #333; }
+    .card { background: white; padding: 16px; border-radius: 12px; margin: 12px auto; max-width: 360px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left; }
+    button { padding: 12px; font-size: 1em; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 8px; width: 100%; box-sizing: border-box; }
+    .btn-connect { background: #007bff; color: white; }
+    .btn-send { background: #28a745; color: white; }
+    button:disabled { background: #ccc; color: #666; cursor: not-allowed; }
+    .hex-box { font-family: monospace; font-size: 0.9em; background: #e9ecef; padding: 10px; border-radius: 6px; min-height: 40px; word-break: break-all; }
+    .log-box { font-family: monospace; font-size: 0.75em; color: #444; background: #222; color: #0f0; padding: 10px; border-radius: 6px; height: 200px; overflow-y: auto; white-space: pre-wrap; }
+    .flex-btns { display: flex; gap: 8px; }
   </style>
 </head>
 <body>
 
-  <h1>MPPT モニター</h1>
-
-  <button id="connectBtn">MPPTに接続</button>
-  <div id="status">接続待機中</div>
+  <h1>MPPT 接続診断ツール</h1>
 
   <div class="card">
-    <div class="label">受信データ (HEX)</div>
+    <button id="connectBtn" class="btn-connect">1. デバイスに接続</button>
+    <div style="font-size: 0.85em; text-align: center; margin-top: 5px;" id="status">待機中...</div>
+  </div>
+
+  <div class="card">
+    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 8px;">2. コマンド手動送信</div>
+    <div class="flex-btns">
+      <button id="btnCmd1" class="btn-send" disabled>標準 (01)</button>
+      <button id="btnCmd2" class="btn-send" disabled>全体 (FF)</button>
+      <button id="btnCmd3" class="btn-send" disabled>ゼロ (00)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 8px;">最新の受信データ (HEX)</div>
     <div id="hexValue" class="hex-box">--</div>
   </div>
 
   <div class="card">
-    <div class="label">解析値 (バッテリー電圧)</div>
-    <div id="parsedValue" class="value">--</div>
-  </div>
-
-  <div class="card">
-    <div class="label">動作ログ</div>
+    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 8px;">システムログ</div>
     <div id="logBox" class="log-box"></div>
   </div>
 
   <script>
     const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-    const TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+    let targetWriteChar = null;
 
-    const connectBtn = document.getElementById('connectBtn');
-    const statusDiv = document.getElementById('status');
-    const logBox = document.getElementById('logBox');
-
-    let txCharacteristic = null;
-    let pollInterval = null;
-    let cmdIndex = 0;
-
-    // 代表的な要求コマンド（アドレス01用 と アドレスFF(全体)用）
-    const commands = [
-      { name: "Addr 01 Request", data: new Uint8Array([0x01, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0xCD]) },
-      { name: "Addr FF Request", data: new Uint8Array([0xFF, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC0, 0x14]) },
-      { name: "Addr 00 Request", data: new Uint8Array([0x00, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0x1A]) }
-    ];
+    const cmds = {
+      cmd1: new Uint8Array([0x01, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0xCD]),
+      cmd2: new Uint8Array([0xFF, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC0, 0x14]),
+      cmd3: new Uint8Array([0x00, 0x03, 0x00, 0x00, 0x00, 0x0A, 0xC5, 0x1A])
+    };
 
     function log(msg) {
-      const now = new Date().toLocaleTimeString();
-      logBox.innerText += `[${now}] ${msg}\n`;
-      logBox.scrollTop = logBox.scrollHeight;
+      const box = document.getElementById('logBox');
+      box.innerText += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      box.scrollTop = box.scrollHeight;
     }
 
-    connectBtn.addEventListener('click', async () => {
-      if (!navigator.bluetooth) {
-        alert("お使いのブラウザはWeb Bluetooth非対応です。AndroidのChromeまたはiPadの「Bluefy」アプリでお試しください。");
-        return;
-      }
-
+    document.getElementById('connectBtn').addEventListener('click', async () => {
       try {
-        connectBtn.disabled = true;
-        statusDiv.innerText = 'デバイスを検索中...';
         log('スキャン開始...');
-
+        document.getElementById('status').innerText = '検索中...';
+        
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [SERVICE_UUID]
         });
 
-        log(`デバイス選択: ${device.name || device.id}`);
-        statusDiv.innerText = '接続中...';
+        log(`デバイス選択: ${device.name}`);
+        document.getElementById('status').innerText = '接続中...';
         const server = await device.gatt.connect();
-
         log('GATT接続成功');
+
         const service = await server.getPrimaryService(SERVICE_UUID);
+        log('サービス取得成功。特性を自動探索します...');
 
-        // RX設定
-        const rxChar = await service.getCharacteristic(RX_CHAR_UUID);
-        rxChar.addEventListener('characteristicvaluechanged', handleData);
-        await rxChar.startNotifications();
-        log('受信(RX)通知設定完了');
+        // 全ての特性(Characteristics)を取得して自動判別
+        const characteristics = await service.getCharacteristics();
+        
+        for (const char of characteristics) {
+          log(`発見: ${char.uuid.substring(4,8)}...`);
+          
+          // 通知(Notify)が可能なドアなら受信設定する
+          if (char.properties.notify || char.properties.indicate) {
+            char.addEventListener('characteristicvaluechanged', handleData);
+            await char.startNotifications();
+            log(` └ 受信(Notify)設定完了！`);
+          }
+          
+          // 書き込み(Write)が可能なドアなら送信設定する
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            targetWriteChar = char;
+            log(` └ 送信(Write)準備完了！`);
+          }
+        }
 
-        // TX設定
-        txCharacteristic = await service.getCharacteristic(TX_CHAR_UUID);
-        log('送信(TX)準備完了');
-
-        statusDiv.innerText = '接続成功！データ要求中...';
-        connectBtn.style.background = '#007bff';
-        connectBtn.innerText = '接続済み';
-
-        startPolling();
+        if (targetWriteChar) {
+          document.getElementById('status').innerText = '準備完了！ボタンで送信してください';
+          document.getElementById('btnCmd1').disabled = false;
+          document.getElementById('btnCmd2').disabled = false;
+          document.getElementById('btnCmd3').disabled = false;
+        } else {
+          log('エラー: 送信可能な特性が見つかりません');
+        }
 
       } catch (error) {
-        statusDiv.innerText = 'エラー発生';
-        log(`エラー: ${error}`);
-        connectBtn.disabled = false;
+        log(`エラー: ${error.message}`);
+        document.getElementById('status').innerText = 'エラー';
       }
     });
 
-    function startPolling() {
-      if (pollInterval) clearInterval(pollInterval);
-
-      pollInterval = setInterval(async () => {
-        if (!txCharacteristic) return;
-        
-        // 順番にコマンドパターンを変えて送信してみる
-        const targetCmd = commands[cmdIndex % commands.length];
-        cmdIndex++;
-
-        try {
-          if (txCharacteristic.writeValueWithoutResponse) {
-            await txCharacteristic.writeValueWithoutResponse(targetCmd.data);
-          } else {
-            await txCharacteristic.writeValue(targetCmd.data);
-          }
-          log(`送信: ${targetCmd.name}`);
-        } catch (e) {
-          log(`送信エラー: ${e.message}`);
+    async function sendCommand(cmdName, data) {
+      if (!targetWriteChar) return;
+      try {
+        log(`送信: ${cmdName}`);
+        if (targetWriteChar.properties.writeWithoutResponse) {
+          await targetWriteChar.writeValueWithoutResponse(data);
+        } else {
+          await targetWriteChar.writeValue(data);
         }
-      }, 2000); // 2秒間隔
+      } catch (error) {
+        log(`送信失敗: ${error.message}`);
+      }
     }
 
-    function handleData(event) {
-      const value = event.target.value;
-      const bytes = new Uint8Array(value.buffer);
-      
-      const hexString = Array.from(bytes)
-        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
-        .join(' ');
-      
-      document.getElementById('hexValue').innerText = hexString;
-      log(`★データ受信 (${bytes.length} bytes): ${hexString}`);
+    document.getElementById('btnCmd1').addEventListener('click', () => sendCommand('標準(01)', cmds.cmd1));
+    document.getElementById('btnCmd2').addEventListener('click', () => sendCommand('全体(FF)', cmds.cmd2));
+    document.getElementById('btnCmd3').addEventListener('click', () => sendCommand('ゼロ(00)', cmds.cmd3));
 
-      // Modbus レスポンス解析
-      if (bytes.length >= 7) {
-        // 電圧データの位置を探して表示
-        const rawVal = (bytes[3] << 8) | bytes[4];
-        document.getElementById('parsedValue').innerText = (rawVal / 100) + ' V';
-      }
+    function handleData(event) {
+      const bytes = new Uint8Array(event.target.value.buffer);
+      const hexString = Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+      document.getElementById('hexValue').innerText = hexString;
+      log(`★受信: ${hexString}`);
     }
   </script>
 </body>
