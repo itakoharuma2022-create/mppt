@@ -64,9 +64,10 @@ async function connectBle() {
     try {
         document.getElementById('connStatus').innerText = '接続対象を検索中...';
         
-        // 1. デバイス選択（Nordic UART Serviceを持っている機器を検索）
+        // 【修正点】すべてのデバイスをスキャン対象にし、接続後にサービスUUIDを参照する
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [SERVICE_UUID] }]
+            acceptAllDevices: true,
+            optionalServices: [SERVICE_UUID]
         });
 
         document.getElementById('connStatus').innerText = '接続中...';
@@ -74,7 +75,7 @@ async function connectBle() {
         const service = await server.getPrimaryService(SERVICE_UUID);
         const rxChar = await service.getCharacteristic(RX_CHAR_UUID);
 
-        // 2. Notificationの開始
+        // Notificationの開始
         await rxChar.startNotifications();
         rxChar.addEventListener('characteristicvaluechanged', handleData);
 
@@ -92,12 +93,11 @@ async function connectBle() {
     }
 }
 
-// データ受信ハンドラ（ログの解析ロジック）
+// データ受信ハンドラ
 function handleData(event) {
     const data = new DataView(event.target.value.buffer);
     const length = data.byteLength;
 
-    // パケットヘッダーの確認
     const header = data.getUint8(0);
     const cmd = data.getUint8(1);
 
@@ -106,18 +106,16 @@ function handleData(event) {
         const payloadLen = data.getUint8(2);
 
         if (payloadLen === 0x14) {
-            // 解析処理（ビッグエンディアン DataView.getUint16(i, false)）
-            const batVolt = data.getUint16(5, false) / 10.0;     // Byte 5,6
-            const chgAmp  = data.getUint16(7, false) / 10.0;     // Byte 7,8
-            const disAmp  = data.getUint16(9, false) / 10.0;     // Byte 9,10
-            const temp    = data.getUint16(11, false) / 100.0;  // Byte 11,12
+            const batVolt = data.getUint16(5, false) / 10.0;     // Byte 5,6 (電圧)
+            const chgAmp  = data.getUint16(7, false) / 10.0;     // Byte 7,8 (充電電流)
+            const disAmp  = data.getUint16(9, false) / 10.0;     // Byte 9,10 (放電電流)
+            const temp    = data.getUint16(11, false) / 100.0;  // Byte 11,12 (温度)
             const pvSt    = data.getUint16(13, false);          // Byte 13,14
             const loadSt  = data.getUint16(15, false);          // Byte 15,16
             const windSt  = data.getUint16(17, false);          // Byte 17,18
-            const accPow  = data.getUint16(19, false) / 10.0;    // Byte 19,20
-            const batPct  = data.getUint16(21, false) / 10.0;    // Byte 21,22
+            const accPow  = data.getUint16(19, false) / 10.0;    // Byte 19,20 (累積発電)
+            const batPct  = data.getUint16(21, false) / 10.0;    // Byte 21,22 (残量%)
 
-            // 画面反映
             document.getElementById('batVolt').innerText = batVolt.toFixed(1) + ' V';
             document.getElementById('chgAmp').innerText  = chgAmp.toFixed(1) + ' A';
             document.getElementById('disAmp').innerText  = disAmp.toFixed(1) + ' A';
