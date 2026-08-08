@@ -2,217 +2,256 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>BLE接続テスト</title>
+    <!-- スマホ表示用 -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>BLE 充放電コントローラーモニター</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #101418;
+            color: #ffffff;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #9da7b3;
+            margin-bottom: 20px;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 14px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        #connectButton {
+            background: #1976d2;
+            color: white;
+        }
+
+        #disconnectButton {
+            background: #444;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .connection {
+            background: #1a2027;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .online {
+            color: #4caf50;
+        }
+
+        .offline {
+            color: #f44336;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .card {
+            background: #1a2027;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .card-title {
+            color: #9da7b3;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .value {
+            font-size: 27px;
+            font-weight: bold;
+        }
+
+        .unit {
+            font-size: 14px;
+            color: #9da7b3;
+            margin-left: 4px;
+        }
+
+        .section {
+            margin-top: 25px;
+        }
+
+        .section h2 {
+            font-size: 19px;
+        }
+
+        .log {
+            background: #080a0c;
+            border-radius: 10px;
+            padding: 12px;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            color: #d0d7de;
+        }
+
+        .packet {
+            background: #080a0c;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .state-on {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .state-off {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .warning {
+            background: #332800;
+            color: #ffd54f;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 500px) {
+            body {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 21px;
+            }
+
+            .value {
+                font-size: 23px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-    <h1>ソーラーコントローラー BLEテスト</h1>
+<div class="container">
 
-    <button id="connectButton">
-        Bluetooth接続
-    </button>
+    <h1>🔋 BLE 充放電コントローラーモニター</h1>
 
-    <pre id="log"></pre>
+    <div class="subtitle">
+        Nordic UART Service / Web Bluetooth
+    </div>
 
-    <script>
 
-        // ========================================
-        // BLEのUUID
-        // ========================================
+    <!-- 接続 -->
+    <div class="connection">
 
-        const NUS_SERVICE =
-            "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        <div id="connectionStatus"
+             class="status offline">
+            ● 未接続
+        </div>
 
+        <div id="deviceName">
+            デバイス: -
+        </div>
 
-        const RX_UUID =
-            "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        <br>
 
+        <button id="connectButton">
+            🔵 Bluetooth接続
+        </button>
 
-        const TX_UUID =
-            "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+        <button id="disconnectButton" disabled>
+            🔴 切断
+        </button>
 
+    </div>
 
-        // ========================================
-        // ログ表示
-        // ========================================
 
-        function log(message) {
+    <!-- 注意 -->
+    <div class="warning">
+        ⚠️ Web Bluetooth対応ブラウザが必要です。
+        HTTPS環境（GitHub Pagesなど）で使用してください。
+    </div>
 
-            console.log(message);
 
-            document.getElementById("log").textContent +=
-                message + "\n";
-        }
+    <!-- 測定値 -->
+    <div class="section">
 
+        <h2>📊 リアルタイムデータ</h2>
 
-        // ========================================
-        // Bluetooth接続
-        // ========================================
+        <div class="grid">
 
-        async function connectBLE() {
+            <div class="card">
 
-            try {
+                <div class="card-title">
+                    バッテリー電圧
+                </div>
 
-                log("① Bluetoothデバイスを探しています...");
+                <div class="value">
+                    <span id="batteryVoltage">
+                        -
+                    </span>
 
+                    <span class="unit">
+                        V
+                    </span>
+                </div>
 
-                // Bluetooth機器を選択
-                const device =
-                    await navigator.bluetooth.requestDevice({
+            </div>
 
-                        acceptAllDevices: true,
 
-                        optionalServices: [
-                            NUS_SERVICE
-                        ]
+            <div class="card">
 
-                    });
-
-
-                log(
-                    "② デバイス発見: " +
-                    device.name
-                );
-
-
-                log(
-                    "③ デバイスID: " +
-                    device.id
-                );
-
-
-                // 切断されたとき
-                device.addEventListener(
-                    "gattserverdisconnected",
-                    function() {
-
-                        log("Bluetoothが切断されました");
-
-                    }
-                );
-
-
-                log("④ GATT接続開始...");
-
-
-                // GATTへ接続
-                const server =
-                    await device.gatt.connect();
-
-
-                log("⑤ GATT接続成功！");
-
-
-                // NUSサービス取得
-                const service =
-                    await server.getPrimaryService(
-                        NUS_SERVICE
-                    );
-
-
-                log("⑥ Nordic UART Service取得成功！");
-
-
-                // RX取得
-                const rx =
-                    await service.getCharacteristic(
-                        RX_UUID
-                    );
-
-
-                log("⑦ RX Characteristic取得成功！");
-
-
-                // TX取得
-                const tx =
-                    await service.getCharacteristic(
-                        TX_UUID
-                    );
-
-
-                log("⑧ TX Characteristic取得成功！");
-// ========================================
-// Notification開始
-// ========================================
-
-await rx.startNotifications();
-
-log("⑨ Notification開始成功！");
-
-
-// ========================================
-// データ受信
-// ========================================
-
-rx.addEventListener(
-    "characteristicvaluechanged",
-    function(event) {
-
-        const value = event.target.value;
-
-        const bytes = new Uint8Array(
-            value.buffer,
-            value.byteOffset,
-            value.byteLength
-        );
-
-        const hex = [...bytes]
-            .map(
-                b => b.toString(16).padStart(2, "0")
-            )
-            .join(" ");
-
-        log("受信データ: " + hex);
-    }
-);
-
-
-log("⑩ データ受信待機中...");
-
-
-                log("");
-                log("========================");
-                log("接続テスト成功！");
-                log("========================");
-
-
-            } catch (error) {
-
-                log("");
-                log("========================");
-                log("エラー発生");
-                log("========================");
-
-                log(
-                    error.name
-                );
-
-                log(
-                    error.message
-                );
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // ========================================
-        // ボタン
-        // ========================================
-
-        document
-            .getElementById("connectButton")
-            .addEventListener(
-                "click",
-                connectBLE
-            );
-
-    </script>
-
-</body>
-</html>
+                <div class="ca
