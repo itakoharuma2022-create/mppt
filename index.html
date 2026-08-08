@@ -3,149 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ソーラーコントローラー モニター</title>
-    <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; max-width: 600px; margin: 0 auto; }
-        h1 { font-size: 20px; color: #333; }
-        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; }
-        .btn:disabled { background: #ccc; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .item { background: #f8f9fa; padding: 10px; border-radius: 8px; }
-        .label { font-size: 12px; color: #666; }
-        .val { font-size: 20px; font-weight: bold; color: #007bff; margin-top: 4px; }
-        .status { font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 12px; }
-        .on { background: #e6f4ea; color: #137333; }
-        .off { background: #fce8e6; color: #c5221f; }
-    </style>
+
+    <title>BLE接続テスト</title>
 </head>
+
 <body>
 
-    <h1>ソーラーコントローラー モニター</h1>
+    <h1>ソーラーコントローラー BLEテスト</h1>
 
-    <div class="card">
-        <button id="connectBtn" class="btn" onclick="connectBle()">Bluetooth接続</button>
-        <p id="connStatus" style="font-size:12px; color:#666; text-align:center; margin-top:8px;">未接続</p>
-    </div>
+    <button id="connectButton">
+        Bluetooth接続
+    </button>
 
-    <div class="card">
-        <h3>リアルタイムデータ (稼働情報)</h3>
-        <div class="grid">
-            <div class="item"><div class="label">バッテリー電圧</div><div class="val" id="batVolt">-- V</div></div>
-            <div class="item"><div class="label">充電電流</div><div class="val" id="chgAmp">-- A</div></div>
-            <div class="item"><div class="label">放電電流</div><div class="val" id="disAmp">-- A</div></div>
-            <div class="item"><div class="label">温度</div><div class="val" id="temp">-- °C</div></div>
-            <div class="item"><div class="label">累積発電量</div><div class="val" id="accPower">-- Ah</div></div>
-            <div class="item"><div class="label">バッテリー残量</div><div class="val" id="batPct">-- %</div></div>
-        </div>
-        <div style="margin-top:15px; font-size:14px;">
-            状態: 
-            <span id="pvState" class="status off">PV: --</span>
-            <span id="loadState" class="status off">Load: --</span>
-            <span id="windState" class="status off">Wind: --</span>
-        </div>
-    </div>
+    <pre id="log"></pre>
 
-    <div class="card">
-        <h3>機器設定値</h3>
-        <div class="grid">
-            <div class="item"><div class="label">Full Voltage</div><div class="val" id="fullVolt" style="color:#555;">-- V</div></div>
-            <div class="item"><div class="label">Restore Discharge</div><div class="val" id="rstVolt" style="color:#555;">-- V</div></div>
-            <div class="item"><div class="label">Cutoff Voltage</div><div class="val" id="cutVolt" style="color:#555;">-- V</div></div>
-        </div>
-    </div>
+    <script>
 
-<script>
-// BLE UUID定義
-const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        // ========================================
+        // BLEのUUID
+        // ========================================
 
-async function connectBle() {
-    try {
-        document.getElementById('connStatus').innerText = '接続対象を検索中...';
-        
-        // 【修正点】すべてのデバイスをスキャン対象にし、接続後にサービスUUIDを参照する
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [SERVICE_UUID]
-        });
+        const NUS_SERVICE =
+            "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 
-        document.getElementById('connStatus').innerText = '接続中...';
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        const rxChar = await service.getCharacteristic(RX_CHAR_UUID);
 
-        // Notificationの開始
-        await rxChar.startNotifications();
-        rxChar.addEventListener('characteristicvaluechanged', handleData);
+        const RX_UUID =
+            "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 
-        document.getElementById('connStatus').innerText = '接続成功！ (データ受信中)';
-        document.getElementById('connectBtn').disabled = true;
 
-        device.addEventListener('gattserverdisconnected', () => {
-            document.getElementById('connStatus').innerText = '切断されました';
-            document.getElementById('connectBtn').disabled = false;
-        });
+        const TX_UUID =
+            "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-    } catch (error) {
-        console.error(error);
-        document.getElementById('connStatus').innerText = '接続エラー: ' + error.message;
-    }
-}
 
-// データ受信ハンドラ
-function handleData(event) {
-    const data = new DataView(event.target.value.buffer);
-    const length = data.byteLength;
+        // ========================================
+        // ログ表示
+        // ========================================
 
-    const header = data.getUint8(0);
-    const cmd = data.getUint8(1);
+        function log(message) {
 
-    // 稼働ステータスパケット (01 03 14 ...)
-    if (header === 0x01 && cmd === 0x03 && length >= 23) {
-        const payloadLen = data.getUint8(2);
+            console.log(message);
 
-        if (payloadLen === 0x14) {
-            const batVolt = data.getUint16(5, false) / 10.0;     // Byte 5,6 (電圧)
-            const chgAmp  = data.getUint16(7, false) / 10.0;     // Byte 7,8 (充電電流)
-            const disAmp  = data.getUint16(9, false) / 10.0;     // Byte 9,10 (放電電流)
-            const temp    = data.getUint16(11, false) / 100.0;  // Byte 11,12 (温度)
-            const pvSt    = data.getUint16(13, false);          // Byte 13,14
-            const loadSt  = data.getUint16(15, false);          // Byte 15,16
-            const windSt  = data.getUint16(17, false);          // Byte 17,18
-            const accPow  = data.getUint16(19, false) / 10.0;    // Byte 19,20 (累積発電)
-            const batPct  = data.getUint16(21, false) / 10.0;    // Byte 21,22 (残量%)
-
-            document.getElementById('batVolt').innerText = batVolt.toFixed(1) + ' V';
-            document.getElementById('chgAmp').innerText  = chgAmp.toFixed(1) + ' A';
-            document.getElementById('disAmp').innerText  = disAmp.toFixed(1) + ' A';
-            document.getElementById('temp').innerText    = temp.toFixed(1) + ' °C';
-            document.getElementById('accPower').innerText = accPow.toFixed(1) + ' Ah';
-            document.getElementById('batPct').innerText   = batPct.toFixed(1) + ' %';
-
-            updateStatusTag('pvState', 'PV: ' + (pvSt === 1 ? '昼' : '夜'), pvSt === 1);
-            updateStatusTag('loadState', 'Load: ' + (loadSt === 1 ? 'ON' : 'OFF'), loadSt === 1);
-            updateStatusTag('windState', 'Wind: ' + (windSt === 1 ? '動作' : '停止'), windSt === 1);
+            document.getElementById("log").textContent +=
+                message + "\n";
         }
-        
-        // 設定値パケット (01 03 12 ...)
-        else if (payloadLen === 0x12) {
-            const fullVolt = data.getUint16(11, false) / 10.0;  // Byte 11,12
-            const rstVolt  = data.getUint16(15, false) / 10.0;  // Byte 15,16
-            const cutVolt  = data.getUint16(21, false) / 10.0;  // Byte 21,22
 
-            document.getElementById('fullVolt').innerText = fullVolt.toFixed(1) + ' V';
-            document.getElementById('rstVolt').innerText  = rstVolt.toFixed(1) + ' V';
-            document.getElementById('cutVolt').innerText  = cutVolt.toFixed(1) + ' V';
+
+        // ========================================
+        // Bluetooth接続
+        // ========================================
+
+        async function connectBLE() {
+
+            try {
+
+                log("① Bluetoothデバイスを探しています...");
+
+
+                // Bluetooth機器を選択
+                const device =
+                    await navigator.bluetooth.requestDevice({
+
+                        acceptAllDevices: true,
+
+                        optionalServices: [
+                            NUS_SERVICE
+                        ]
+
+                    });
+
+
+                log(
+                    "② デバイス発見: " +
+                    device.name
+                );
+
+
+                log(
+                    "③ デバイスID: " +
+                    device.id
+                );
+
+
+                // 切断されたとき
+                device.addEventListener(
+                    "gattserverdisconnected",
+                    function() {
+
+                        log("Bluetoothが切断されました");
+
+                    }
+                );
+
+
+                log("④ GATT接続開始...");
+
+
+                // GATTへ接続
+                const server =
+                    await device.gatt.connect();
+
+
+                log("⑤ GATT接続成功！");
+
+
+                // NUSサービス取得
+                const service =
+                    await server.getPrimaryService(
+                        NUS_SERVICE
+                    );
+
+
+                log("⑥ Nordic UART Service取得成功！");
+
+
+                // RX取得
+                const rx =
+                    await service.getCharacteristic(
+                        RX_UUID
+                    );
+
+
+                log("⑦ RX Characteristic取得成功！");
+
+
+                // TX取得
+                const tx =
+                    await service.getCharacteristic(
+                        TX_UUID
+                    );
+
+
+                log("⑧ TX Characteristic取得成功！");
+
+
+                log("");
+                log("========================");
+                log("接続テスト成功！");
+                log("========================");
+
+
+            } catch (error) {
+
+                log("");
+                log("========================");
+                log("エラー発生");
+                log("========================");
+
+                log(
+                    error.name
+                );
+
+                log(
+                    error.message
+                );
+
+                console.error(error);
+
+            }
+
         }
-    }
-}
 
-function updateStatusTag(id, text, isOn) {
-    const el = document.getElementById(id);
-    el.innerText = text;
-    el.className = 'status ' + (isOn ? 'on' : 'off');
-}
-</script>
+
+        // ========================================
+        // ボタン
+        // ========================================
+
+        document
+            .getElementById("connectButton")
+            .addEventListener(
+                "click",
+                connectBLE
+            );
+
+    </script>
+
 </body>
 </html>
