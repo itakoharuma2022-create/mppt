@@ -134,6 +134,43 @@
 
 
                 log("⑧ TX Characteristic取得成功！");
+// ========================================
+// Notification開始
+// ========================================
+
+await rx.startNotifications();
+
+log("⑨ Notification開始成功！");
+
+
+// ========================================
+// データ受信
+// ========================================
+
+rx.addEventListener(
+    "characteristicvaluechanged",
+    function(event) {
+
+        const value = event.target.value;
+
+        const bytes = new Uint8Array(
+            value.buffer,
+            value.byteOffset,
+            value.byteLength
+        );
+
+        const hex = [...bytes]
+            .map(
+                b => b.toString(16).padStart(2, "0")
+            )
+            .join(" ");
+
+        log("受信データ: " + hex);
+    }
+);
+
+
+log("⑩ データ受信待機中...");
 
 
                 log("");
