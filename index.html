@@ -2,12 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-
-    <!-- スマホでも見やすくする -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>BLE Solar Monitor</title>
-
     <style>
         body {
             font-family: sans-serif;
@@ -15,16 +11,13 @@
             margin: 0;
             padding: 20px;
         }
-
         .container {
             max-width: 600px;
             margin: auto;
         }
-
         h1 {
             text-align: center;
         }
-
         button {
             width: 100%;
             padding: 15px;
@@ -35,11 +28,9 @@
             color: white;
             margin-bottom: 15px;
         }
-
         button:active {
             background: #1976d2;
         }
-
         #log {
             background: #111;
             color: #00ff00;
@@ -54,290 +45,86 @@
         }
     </style>
 </head>
-
 <body>
 
 <div class="container">
-
     <h1>BLE Solar Monitor</h1>
-
-    <button id="connectButton">
-        Bluetooth接続
-    </button>
-
+    <button id="connectButton">Bluetooth接続</button>
     <div id="log"></div>
-
 </div>
 
-
 <script>
+    // UUID定義
+    const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+    const RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+    const TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-    // ========================================
-    // BLE UUID
-    // ========================================
-
-    const SERVICE_UUID =
-        "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-
-    // RX = コントローラー → スマホ
-    const RX_UUID =
-        "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-
-    // TX = スマホ → コントローラー
-    const TX_UUID =
-        "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-
-
-    // ========================================
-    // HTML elements
-    // ========================================
-
-    const connectButton =
-        document.getElementById("connectButton");
-
-    const logElement =
-        document.getElementById("log");
-
-
-    // ========================================
-    // ログ表示
-    // ========================================
+    const connectButton = document.getElementById("connectButton");
+    const logElement = document.getElementById("log");
 
     function log(message) {
-
         console.log(message);
-
-        logElement.textContent +=
-            message + "\n";
-
-        // 一番下までスクロール
-        logElement.scrollTop =
-            logElement.scrollHeight;
+        logElement.textContent += message + "\n";
+        logElement.scrollTop = logElement.scrollHeight;
     }
 
+    // 指定時間(ミリ秒)待つ関数
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-    // ========================================
-    // Bluetooth接続
-    // ========================================
-
-    connectButton.addEventListener(
-        "click",
-        async function() {
-
+    // リトライ付きGATT接続関数
+    async function connectGattWithRetry(device, maxRetries = 3) {
+        for (let i = 1; i <= maxRetries; i++) {
             try {
-
-                // ログをクリア
-                logElement.textContent = "";
-
-                log("① Bluetoothデバイスを探しています...");
-
-
-                // ========================================
-                // デバイス検索
-                // ========================================
-
-                const device =
-                    await navigator.bluetooth.requestDevice({
-
-                        acceptAllDevices: true,
-
-                        optionalServices: [
-                            SERVICE_UUID
-                        ]
-
-                    });
-
-
-                log(
-                    "② デバイス発見: "
-                    + device.name
-                );
-
-
-                log(
-                    "③ デバイスID: "
-                    + device.id
-                );
-
-
-                // ========================================
-                // GATT接続
-                // ========================================
-
-                log("④ GATT接続開始...");
-
-                const server =
-                    await device.gatt.connect();
-
-
-                log("⑤ GATT接続成功！");
-
-
-                // ========================================
-                // Nordic UART Service
-                // ========================================
-
-                const service =
-                    await server.getPrimaryService(
-                        SERVICE_UUID
-                    );
-
-
-                log(
-                    "⑥ Nordic UART Service取得成功！"
-                );
-
-
-                // ========================================
-                // RX Characteristic
-                // ========================================
-
-                const rx =
-                    await service.getCharacteristic(
-                        RX_UUID
-                    );
-
-
-                log(
-                    "⑦ RX Characteristic取得成功！"
-                );
-
-
-                // ========================================
-                // TX Characteristic
-                // ========================================
-
-                const tx =
-                    await service.getCharacteristic(
-                        TX_UUID
-                    );
-
-
-                log(
-                    "⑧ TX Characteristic取得成功！"
-                );
-
-
-                // ========================================
-                // STEP 2
-                // Notification開始
-                // ========================================
-
-                await rx.startNotifications();
-
-
-                log(
-                    "⑨ Notification開始成功！"
-                );
-
-
-                // ========================================
-                // データ受信イベント
-                // ========================================
-
-                rx.addEventListener(
-                    "characteristicvaluechanged",
-                    function(event) {
-
-                        const value =
-                            event.target.value;
-
-
-                        // DataView → Uint8Array
-                        const bytes =
-                            new Uint8Array(
-                                value.buffer,
-                                value.byteOffset,
-                                value.byteLength
-                            );
-
-
-                        // ========================================
-                        // HEXへ変換
-                        // ========================================
-
-                        const hex =
-                            [...bytes]
-                            .map(
-                                function(byte) {
-
-                                    return byte
-                                        .toString(16)
-                                        .padStart(2, "0");
-
-                                }
-                            )
-                            .join(" ");
-
-
-                        // ========================================
-                        // 受信データ表示
-                        // ========================================
-
-                        log(
-                            "受信データ: "
-                            + hex
-                        );
-
-                    }
-                );
-
-
-                log(
-                    "⑩ データ受信待機中..."
-                );
-
-
-                // ========================================
-                // 接続テスト成功
-                // ========================================
-
-                log("");
-                log(
-                    "========================"
-                );
-                log(
-                    "接続テスト成功！"
-                );
-                log(
-                    "========================"
-                );
-
-
-                // ========================================
-                // 切断時
-                // ========================================
-
-                device.addEventListener(
-                    "gattserverdisconnected",
-                    function() {
-
-                        log("");
-                        log(
-                            "Bluetooth切断"
-                        );
-
-                    }
-                );
-
-
-            } catch (error) {
-
-                log("");
-
-                log(
-                    "エラー: "
-                    + error.message
-                );
-
-                console.error(error);
-
+                log(`④ GATT接続開始 (${i}/${maxRetries}回目)...`);
+                // デバイス選択後や失敗後の通信安定化のために1秒待つ
+                await sleep(1000);
+                const server = await device.gatt.connect();
+                return server;
+            } catch (err) {
+                log(`⚠️ 接続失敗 (${i}回目): ${err.message}`);
+                if (i === maxRetries) throw err; // 規定回数失敗したらエラーを投げる
+                log("1秒後に再試行します...");
             }
-
         }
-    );
+    }
 
+    connectButton.addEventListener("click", async function() {
+        try {
+            logElement.textContent = "";
+            log("① Bluetoothデバイスを探しています...");
+
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [SERVICE_UUID]
+            });
+
+            log("② デバイス発見: " + device.name);
+            log("③ デバイスID: " + device.id);
+
+            // リトライ付きでGATT接続
+            const server = await connectGattWithRetry(device, 3);
+            log("⑤ GATT接続成功！");
+
+            log("⑥ Nordic UART Service取得中...");
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            log("   Service取得成功！");
+
+            log("⑦ RX Characteristic取得中...");
+            const rx = await service.getCharacteristic(RX_UUID);
+            log("   RX Characteristic取得成功！");
+
+            log("⑧ TX Characteristic取得中...");
+            const tx = await service.getCharacteristic(TX_UUID);
+            log("   TX Characteristic取得成功！");
+
+            log("🎉 すべての準備が完了しました！");
+
+        } catch (error) {
+            log("\n❌ エラー: " + error.name + " - " + error.message);
+        }
+    });
 </script>
-
 </body>
 </html>
