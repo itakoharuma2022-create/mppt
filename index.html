@@ -3,182 +3,54 @@
 <head>
     <meta charset="UTF-8">
 
-    <!-- スマホ表示用 -->
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <!-- スマホでも見やすくする -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>BLE 充放電コントローラーモニター</title>
+    <title>BLE Solar Monitor</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
         body {
+            font-family: sans-serif;
+            background: #f5f5f5;
             margin: 0;
             padding: 20px;
-            background: #101418;
-            color: #ffffff;
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                sans-serif;
         }
 
         .container {
-            max-width: 900px;
+            max-width: 600px;
             margin: auto;
         }
 
         h1 {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            color: #9da7b3;
-            margin-bottom: 20px;
+            text-align: center;
         }
 
         button {
-            border: none;
-            border-radius: 10px;
-            padding: 14px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-right: 8px;
-            margin-bottom: 8px;
-        }
-
-        #connectButton {
-            background: #1976d2;
-            color: white;
-        }
-
-        #disconnectButton {
-            background: #444;
-            color: white;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .connection {
-            background: #1a2027;
-            border-radius: 12px;
+            width: 100%;
             padding: 15px;
-            margin-top: 15px;
-            margin-bottom: 20px;
-        }
-
-        .status {
             font-size: 18px;
-            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background: #2196f3;
+            color: white;
+            margin-bottom: 15px;
         }
 
-        .online {
-            color: #4caf50;
+        button:active {
+            background: #1976d2;
         }
 
-        .offline {
-            color: #f44336;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns:
-                repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-top: 15px;
-        }
-
-        .card {
-            background: #1a2027;
-            border-radius: 12px;
-            padding: 18px;
-        }
-
-        .card-title {
-            color: #9da7b3;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .value {
-            font-size: 27px;
-            font-weight: bold;
-        }
-
-        .unit {
-            font-size: 14px;
-            color: #9da7b3;
-            margin-left: 4px;
-        }
-
-        .section {
-            margin-top: 25px;
-        }
-
-        .section h2 {
-            font-size: 19px;
-        }
-
-        .log {
-            background: #080a0c;
-            border-radius: 10px;
-            padding: 12px;
-            height: 300px;
-            overflow-y: auto;
+        #log {
+            background: #111;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 300px;
             white-space: pre-wrap;
             word-break: break-all;
             font-family: monospace;
-            font-size: 12px;
-            color: #d0d7de;
-        }
-
-        .packet {
-            background: #080a0c;
-            border-radius: 10px;
-            padding: 12px;
-            margin-top: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            word-break: break-all;
-        }
-
-        .state-on {
-            color: #4caf50;
-            font-weight: bold;
-        }
-
-        .state-off {
-            color: #f44336;
-            font-weight: bold;
-        }
-
-        .warning {
-            background: #332800;
-            color: #ffd54f;
-            border-radius: 10px;
-            padding: 12px;
-            margin-top: 15px;
-        }
-
-        @media (max-width: 500px) {
-            body {
-                padding: 12px;
-            }
-
-            h1 {
-                font-size: 21px;
-            }
-
-            .value {
-                font-size: 23px;
-            }
+            font-size: 14px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -187,71 +59,285 @@
 
 <div class="container">
 
-    <h1>🔋 BLE 充放電コントローラーモニター</h1>
+    <h1>BLE Solar Monitor</h1>
 
-    <div class="subtitle">
-        Nordic UART Service / Web Bluetooth
-    </div>
+    <button id="connectButton">
+        Bluetooth接続
+    </button>
 
+    <div id="log"></div>
 
-    <!-- 接続 -->
-    <div class="connection">
-
-        <div id="connectionStatus"
-             class="status offline">
-            ● 未接続
-        </div>
-
-        <div id="deviceName">
-            デバイス: -
-        </div>
-
-        <br>
-
-        <button id="connectButton">
-            🔵 Bluetooth接続
-        </button>
-
-        <button id="disconnectButton" disabled>
-            🔴 切断
-        </button>
-
-    </div>
+</div>
 
 
-    <!-- 注意 -->
-    <div class="warning">
-        ⚠️ Web Bluetooth対応ブラウザが必要です。
-        HTTPS環境（GitHub Pagesなど）で使用してください。
-    </div>
+<script>
+
+    // ========================================
+    // BLE UUID
+    // ========================================
+
+    const SERVICE_UUID =
+        "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+
+    // RX = コントローラー → スマホ
+    const RX_UUID =
+        "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+    // TX = スマホ → コントローラー
+    const TX_UUID =
+        "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 
-    <!-- 測定値 -->
-    <div class="section">
+    // ========================================
+    // HTML elements
+    // ========================================
 
-        <h2>📊 リアルタイムデータ</h2>
+    const connectButton =
+        document.getElementById("connectButton");
 
-        <div class="grid">
-
-            <div class="card">
-
-                <div class="card-title">
-                    バッテリー電圧
-                </div>
-
-                <div class="value">
-                    <span id="batteryVoltage">
-                        -
-                    </span>
-
-                    <span class="unit">
-                        V
-                    </span>
-                </div>
-
-            </div>
+    const logElement =
+        document.getElementById("log");
 
 
-            <div class="card">
+    // ========================================
+    // ログ表示
+    // ========================================
 
-                <div class="ca
+    function log(message) {
+
+        console.log(message);
+
+        logElement.textContent +=
+            message + "\n";
+
+        // 一番下までスクロール
+        logElement.scrollTop =
+            logElement.scrollHeight;
+    }
+
+
+    // ========================================
+    // Bluetooth接続
+    // ========================================
+
+    connectButton.addEventListener(
+        "click",
+        async function() {
+
+            try {
+
+                // ログをクリア
+                logElement.textContent = "";
+
+                log("① Bluetoothデバイスを探しています...");
+
+
+                // ========================================
+                // デバイス検索
+                // ========================================
+
+                const device =
+                    await navigator.bluetooth.requestDevice({
+
+                        acceptAllDevices: true,
+
+                        optionalServices: [
+                            SERVICE_UUID
+                        ]
+
+                    });
+
+
+                log(
+                    "② デバイス発見: "
+                    + device.name
+                );
+
+
+                log(
+                    "③ デバイスID: "
+                    + device.id
+                );
+
+
+                // ========================================
+                // GATT接続
+                // ========================================
+
+                log("④ GATT接続開始...");
+
+                const server =
+                    await device.gatt.connect();
+
+
+                log("⑤ GATT接続成功！");
+
+
+                // ========================================
+                // Nordic UART Service
+                // ========================================
+
+                const service =
+                    await server.getPrimaryService(
+                        SERVICE_UUID
+                    );
+
+
+                log(
+                    "⑥ Nordic UART Service取得成功！"
+                );
+
+
+                // ========================================
+                // RX Characteristic
+                // ========================================
+
+                const rx =
+                    await service.getCharacteristic(
+                        RX_UUID
+                    );
+
+
+                log(
+                    "⑦ RX Characteristic取得成功！"
+                );
+
+
+                // ========================================
+                // TX Characteristic
+                // ========================================
+
+                const tx =
+                    await service.getCharacteristic(
+                        TX_UUID
+                    );
+
+
+                log(
+                    "⑧ TX Characteristic取得成功！"
+                );
+
+
+                // ========================================
+                // STEP 2
+                // Notification開始
+                // ========================================
+
+                await rx.startNotifications();
+
+
+                log(
+                    "⑨ Notification開始成功！"
+                );
+
+
+                // ========================================
+                // データ受信イベント
+                // ========================================
+
+                rx.addEventListener(
+                    "characteristicvaluechanged",
+                    function(event) {
+
+                        const value =
+                            event.target.value;
+
+
+                        // DataView → Uint8Array
+                        const bytes =
+                            new Uint8Array(
+                                value.buffer,
+                                value.byteOffset,
+                                value.byteLength
+                            );
+
+
+                        // ========================================
+                        // HEXへ変換
+                        // ========================================
+
+                        const hex =
+                            [...bytes]
+                            .map(
+                                function(byte) {
+
+                                    return byte
+                                        .toString(16)
+                                        .padStart(2, "0");
+
+                                }
+                            )
+                            .join(" ");
+
+
+                        // ========================================
+                        // 受信データ表示
+                        // ========================================
+
+                        log(
+                            "受信データ: "
+                            + hex
+                        );
+
+                    }
+                );
+
+
+                log(
+                    "⑩ データ受信待機中..."
+                );
+
+
+                // ========================================
+                // 接続テスト成功
+                // ========================================
+
+                log("");
+                log(
+                    "========================"
+                );
+                log(
+                    "接続テスト成功！"
+                );
+                log(
+                    "========================"
+                );
+
+
+                // ========================================
+                // 切断時
+                // ========================================
+
+                device.addEventListener(
+                    "gattserverdisconnected",
+                    function() {
+
+                        log("");
+                        log(
+                            "Bluetooth切断"
+                        );
+
+                    }
+                );
+
+
+            } catch (error) {
+
+                log("");
+
+                log(
+                    "エラー: "
+                    + error.message
+                );
+
+                console.error(error);
+
+            }
+
+        }
+    );
+
+</script>
+
+</body>
+</html>
