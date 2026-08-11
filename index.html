@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLE MPPT Monitor v2</title>
+    <title>BLE MPPT Monitor v2.1 (Debug Fix)</title>
     <style>
         body { font-family: monospace, sans-serif; background: #181818; color: #eee; padding: 15px; }
         .container { max-width: 650px; margin: auto; }
@@ -12,13 +12,13 @@
         .card { background: #242424; border-radius: 6px; padding: 12px; margin-top: 15px; border-left: 4px solid #0288d1; }
         .value { font-size: 1.2em; font-weight: bold; color: #4fc3f7; }
         .unconfirmed { color: #888; font-size: 0.9em; }
-        #log { background: #000; color: #00ff66; padding: 10px; border-radius: 6px; height: 180px; overflow-y: auto; font-size: 12px; margin-top: 15px; white-space: pre-wrap; }
+        #log { background: #000; color: #00ff66; padding: 10px; border-radius: 6px; height: 220px; overflow-y: auto; font-size: 12px; margin-top: 15px; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚡ MPPT Solar Monitor (Handoff v2)</h2>
+    <h2>⚡ MPPT Solar Monitor v2.1 (Debug)</h2>
     <button id="btnConnect">Bluetooth 接続開始</button>
 
     <div class="card">
@@ -39,12 +39,13 @@
 
     <div class="card" style="border-left-color: #ff9800;">
         <h3>🔍 検証用 Unconfirmed Rawデータ</h3>
-        <div class="unconfirmed">Reg 3 (放電電流推定): <span id="rawReg3">--</span></div>
-        <div class="unconfirmed">Reg 6 (Load状態推定): <span id="rawReg6">--</span></div>
-        <div class="unconfirmed">Reg 7 (Wind状態推定): <span id="rawReg7">--</span></div>
-        <div class="unconfirmed">Reg 9 (残量%推定): <span id="rawReg9">--</span></div>
+        <div class="unconfirmed">Reg 3 (放電電流): <span id="rawReg3">--</span></div>
+        <div class="unconfirmed">Reg 6 (Load状態): <span id="rawReg6">--</span></div>
+        <div class="unconfirmed">Reg 7 (Wind状態): <span id="rawReg7">--</span></div>
+        <div class="unconfirmed">Reg 9 (残量%): <span id="rawReg9">--</span></div>
     </div>
 
+    <h4 style="margin-bottom: 5px; margin-top: 20px;">📡 リアルタイム通信ログ</h4>
     <div id="log"></div>
 </div>
 
@@ -55,11 +56,17 @@ const TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 function log(msg) {
     const el = document.getElementById("log");
-    el.textContent += msg + "\n";
+    const time = new Date().toLocaleTimeString();
+    el.textContent += `[${time}] ${msg}\n`;
     el.scrollTop = el.scrollHeight;
 }
 
-// CRC16 Modbus (多項式0xA001)
+// バイト配列を HEX 文字列に変換
+function toHex(uint8Array) {
+    return Array.from(uint8Array).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('-');
+}
+
+// CRC16 Modbus (多項式0xA001, 初期値0xFFFF)
 function crc16Modbus(buffer) {
     let crc = 0xFFFF;
     for (let i = 0; i < buffer.length; i++) {
@@ -84,16 +91,30 @@ function buildReadRequest(slaveAddr, startAddr, regCount) {
     return req;
 }
 
+// 安全な書き込み関数 (Write Without Response が失敗した場合は Write With Response にフォールバック)
+async function safeWrite(characteristic, data) {
+    try {
+        if (characteristic.properties.writeWithoutResponse) {
+            await characteristic.writeValueWithoutResponse(data);
+        } else {
+            await characteristic.writeValueWithResponse(data);
+        }
+    } catch (e) {
+        // フォールバック試行
+        await characteristic.writeValue(data);
+    }
+}
+
 document.getElementById("btnConnect").addEventListener("click", async () => {
     try {
-        log("🔍 デバイスを検索中...");
+        log("🔍 BLEデバイスを検索中...");
         const device = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
             optionalServices: [SERVICE_UUID]
         });
 
         log("🔗 GATT接続開始: " + device.name);
-        await new Promise(r => setTimeout(r, 500)); // 接続安定用ウェイト
+        await new Promise(r => setTimeout(r, 600)); // GATT安定用ウェイト
         const server = await device.gatt.connect();
 
         log("📡 サービス・特性取得中...");
@@ -101,63 +122,105 @@ document.getElementById("btnConnect").addEventListener("click", async () => {
         const rxChar = await service.getCharacteristic(RX_UUID);
         const txChar = await service.getCharacteristic(TX_UUID);
 
+        // Notification 購読設定
         await rxChar.startNotifications();
-        log("✅ Notification 購読開始");
+        log("✅ Notification 購読開始成功");
 
+        // データ受信イベント
         rxChar.addEventListener("characteristicvaluechanged", (event) => {
-            const data = new Uint8Array(event.target.value.buffer);
-            if (data.length < 5) return;
+            try {
+                // 【原因A対策】 byteOffset と byteLength を指定して安全に Uint8Array 化
+                const target = event.target.value;
+                const data = new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
+                
+                log(`📥 受信 [${data.length}B]: ${toHex(data)}`);
 
-            // CRCチェック
-            const payload = data.slice(0, -2);
-            const recCrc = data.slice(-2);
-            const calCrc = crc16Modbus(payload);
-            if (recCrc[0] !== calCrc[0] || recCrc[1] !== calCrc[1]) {
-                log("❌ CRCエラー");
-                return;
-            }
+                if (data.length < 5) return;
 
-            const view = new DataView(data.buffer);
-            const funcCode = data[1];
-            const byteCount = data[2];
+                // CRCチェック
+                const payload = data.slice(0, -2);
+                const recCrc = data.slice(-2);
+                const calCrc = crc16Modbus(payload);
 
-            // A. リアルタイムデータ (25bytes)
-            if (funcCode === 0x03 && byteCount === 0x14 && data.length === 25) {
-                document.getElementById("valBatVolt").textContent = (view.getUint16(5) / 10.0).toFixed(1);
-                document.getElementById("valChgAmp").textContent  = (view.getUint16(7) / 10.0).toFixed(1);
-                document.getElementById("valTemp").textContent    = (view.getUint16(11) / 100.0).toFixed(1);
-                document.getElementById("valPvState").textContent = view.getUint16(13) === 1 ? "昼/発電中(1)" : "夜/停止(0)";
-                document.getElementById("valAccPower").textContent= (view.getUint16(19) / 10.0).toFixed(1);
+                if (recCrc[0] !== calCrc[0] || recCrc[1] !== calCrc[1]) {
+                    log(`❌ CRC不一致: 受信[${toHex(recCrc)}] != 計算[${toHex(calCrc)}]`);
+                    return;
+                }
 
-                // Unconfirmed
-                document.getElementById("rawReg3").textContent = view.getUint16(9);
-                document.getElementById("rawReg6").textContent = view.getUint16(15);
-                document.getElementById("rawReg7").textContent = view.getUint16(17);
-                document.getElementById("rawReg9").textContent = view.getUint16(21);
-            }
-            // B. 設定値データ (23bytes)
-            else if (funcCode === 0x03 && byteCount === 0x12 && data.length === 23) {
-                document.getElementById("valFullVolt").textContent = (view.getUint16(11) / 10.0).toFixed(1);
-                document.getElementById("valRstVolt").textContent  = (view.getUint16(15) / 10.0).toFixed(1);
-                document.getElementById("valCutVolt").textContent  = (view.getUint16(21) / 10.0).toFixed(1);
+                const slaveAddr = data[0];
+                const funcCode  = data[1];
+                const byteCount = data[2];
+                const view      = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+                // A. リアルタイムデータ (SlaveAddr=0x01, FC=0x03, ByteCount=0x14, 全25Bytes)
+                // 【バグ2修正】 slaveAddr === 0x01 のチェックを追加
+                if (slaveAddr === 0x01 && funcCode === 0x03 && byteCount === 0x14 && data.length === 25) {
+                    const batVolt  = (view.getUint16(5) / 10.0).toFixed(1);
+                    const chgAmp   = (view.getUint16(7) / 10.0).toFixed(1);
+                    const temp     = (view.getUint16(11) / 100.0).toFixed(1);
+                    const pvState  = view.getUint16(13) === 1 ? "昼/発電中(1)" : "夜/停止(0)";
+                    const accPower = (view.getUint16(19) / 10.0).toFixed(1);
+
+                    document.getElementById("valBatVolt").textContent  = batVolt;
+                    document.getElementById("valChgAmp").textContent   = chgAmp;
+                    document.getElementById("valTemp").textContent     = temp;
+                    document.getElementById("valPvState").textContent  = pvState;
+                    document.getElementById("valAccPower").textContent = accPower;
+
+                    // Unconfirmed (Raw)
+                    document.getElementById("rawReg3").textContent = view.getUint16(9);
+                    document.getElementById("rawReg6").textContent = view.getUint16(15);
+                    document.getElementById("rawReg7").textContent = view.getUint16(17);
+                    document.getElementById("rawReg9").textContent = view.getUint16(21);
+
+                    log(`✨ リアルタイム値更新成功 (Bat: ${batVolt}V, PV: ${chgAmp}A, Temp: ${temp}℃)`);
+                }
+                // B. 設定値データ (SlaveAddr=0x01, FC=0x03, ByteCount=0x12, 全23Bytes)
+                // 【バグ1修正】 バイトオフセットを 9, 13, 19 に修正
+                else if (slaveAddr === 0x01 && funcCode === 0x03 && byteCount === 0x12 && data.length === 23) {
+                    const fullVolt = (view.getUint16(9) / 10.0).toFixed(1);   // Reg 3
+                    const rstVolt  = (view.getUint16(13) / 10.0).toFixed(1);  // Reg 5
+                    const cutVolt  = (view.getUint16(19) / 10.0).toFixed(1);  // Reg 8
+
+                    document.getElementById("valFullVolt").textContent = fullVolt;
+                    document.getElementById("valRstVolt").textContent  = rstVolt;
+                    document.getElementById("valCutVolt").textContent  = cutVolt;
+
+                    log(`⚙️ 設定値更新成功 (Full: ${fullVolt}V, Restore: ${rstVolt}V, Cutoff: ${cutVolt}V)`);
+                }
+                // C. シリアル番号等 (SlaveAddr=0x00)
+                else if (slaveAddr === 0x00) {
+                    log(`ℹ️ デバイス情報パケットを受信 (スキップ)`);
+                }
+
+            } catch (err) {
+                log(`❌ 受信パースエラー: ${err.message}`);
             }
         });
 
-        // ポーリング送信開始
-        const reqA = buildReadRequest(1, 0x0001, 10);
-        const reqB = buildReadRequest(1, 0x0000, 9);
+        // ポーリング準備
+        const reqA = buildReadRequest(1, 0x0001, 10); // リアルタイム値要求
+        const reqB = buildReadRequest(1, 0x0000, 9);  // 設定値要求
         let sendA = true;
 
-        log("🔄 5秒周期でポーリング開始");
+        log("🔄 5秒周期のポーリングを開始します");
+
+        // 定期送信ループ
         setInterval(async () => {
             if (!device.gatt.connected) return;
             const req = sendA ? reqA : reqB;
             sendA = !sendA;
-            await txChar.writeValueWithoutResponse(req);
+
+            try {
+                log(`📤 送信: ${toHex(req)}`);
+                await safeWrite(txChar, req);
+            } catch (err) {
+                log(`❌ 送信エラー: ${err.message}`);
+            }
         }, 5000);
 
     } catch (err) {
-        log("❌ エラー: " + err.message);
+        log(`❌ GATT接続・初期化エラー: ${err.message}`);
     }
 });
 </script>
