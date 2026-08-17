@@ -1,228 +1,164 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLE MPPT Monitor v2.1 (Debug Fix)</title>
-    <style>
-        body { font-family: monospace, sans-serif; background: #181818; color: #eee; padding: 15px; }
-        .container { max-width: 650px; margin: auto; }
-        button { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; background: #0288d1; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        button:disabled { background: #555; }
-        .card { background: #242424; border-radius: 6px; padding: 12px; margin-top: 15px; border-left: 4px solid #0288d1; }
-        .value { font-size: 1.2em; font-weight: bold; color: #4fc3f7; }
-        .unconfirmed { color: #888; font-size: 0.9em; }
-        #log { background: #000; color: #00ff66; padding: 10px; border-radius: 6px; height: 220px; overflow-y: auto; font-size: 12px; margin-top: 15px; white-space: pre-wrap; word-break: break-all; }
-    </style>
-</head>
-<body>
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Play, Pause, Volume2, VolumeX, Sparkles, Sliders, Zap, 
+  Disc, Radio, Share2, Copy, Check, Music, Shield, RefreshCw,
+  SlidersHorizontal, Waves, RadioTower, Maximize2, AlertCircle
+} from 'lucide-react';
 
-<div class="container">
-    <h2>⚡ MPPT Solar Monitor v2.1 (Debug)</h2>
-    <button id="btnConnect">Bluetooth 接続開始</button>
+const FREQUENCIES = [80, 150, 300, 600, 1200, 2500, 5000, 12000];
+const FREQ_LABELS = ['80Hz', '150Hz', '300Hz', '600Hz', '1.2kHz', '2.5kHz', '5kHz', '12kHz'];
 
-    <div class="card">
-        <h3>📊 リアルタイム測定値 (確定データ)</h3>
-        <div>🔋 バッテリー電圧: <span id="valBatVolt" class="value">--</span> V</div>
-        <div>☀️ PV充電電流: <span id="valChgAmp" class="value">--</span> A</div>
-        <div>🌡️ 本体温度: <span id="valTemp" class="value">--</span> °C</div>
-        <div>☀️ PV状態: <span id="valPvState" class="value">--</span></div>
-        <div>⚡ 積算発電量: <span id="valAccPower" class="value">--</span> Ah</div>
-    </div>
+const PRESETS = {
+  godBalance: {
+    name: '神バランス (神EQ)',
+    desc: '野外・室内を問わずクリアなボーカルと深い低音を両立した決定版',
+    eq: [5, 3, 0, -1, 1, 0, 2, 4],
+    bassUp: true,
+    ult: 'OFF'
+  },
+  ult1: {
+    name: 'ULT 1 (Deep Sub-Bass)',
+    desc: 'Sony ULT風：地鳴りのようなディープで包み込む超低音',
+    eq: [6, 2, -1, -2, 0, 1, 2, 3],
+    bassUp: true,
+    ult: 'ULT1'
+  },
+  ult2: {
+    name: 'ULT 2 (Power Punch Bass)',
+    desc: 'Sony ULT風：クラブやフェスのようなキレのある爆発的重低音',
+    eq: [4, 6, 1, -1, 1, 2, 4, 5],
+    bassUp: true,
+    ult: 'ULT2'
+  },
+  sonyUltField: {
+    name: 'Sony ULT Field 7風',
+    desc: 'Sony特有のダイナミックレンジと圧倒的低域パワーを再現',
+    eq: [6, 4, -1, -2, 0, 2, 3, 5],
+    bassUp: true,
+    ult: 'ULT2'
+  },
+  cinema3d: {
+    name: '映画・立体シネマ',
+    desc: '重低音の臨場感とセリフ（中音域）の聞き取りやすさを強化',
+    eq: [6, 3, -1, 1, 2, 3, 4, 5],
+    bassUp: true,
+    ult: 'ULT1'
+  },
+  jblBoombox: {
+    name: 'JBL Boombox 3風',
+    desc: 'アタッキーで輪郭のはっきりしたメリハリのあるドンシャリ',
+    eq: [5, 4, -2, 0, 2, 1, 4, 3],
+    bassUp: false,
+    ult: 'OFF'
+  },
+  vocalClear: {
+    name: 'クリアボーカル',
+    desc: '重低音に埋もれがちな中高域・歌声をくっきりと際立たせる',
+    eq: [1, 0, 2, 4, 3, 2, 3, 2],
+    bassUp: false,
+    ult: 'OFF'
+  },
+  nightMode: {
+    name: 'ナイトモード (近所迷惑防止)',
+    desc: '超低音の響きを抑えつつ、小音量でも聴き取りやすい設定',
+    eq: [-4, -2, 1, 2, 2, 1, 0, -1],
+    bassUp: false,
+    ult: 'OFF'
+  },
+  flat: {
+    name: 'フラット (原音)',
+    desc: 'すべての帯域を0dBにフラット調整',
+    eq: [0, 0, 0, 0, 0, 0, 0, 0],
+    bassUp: false,
+    ult: 'OFF'
+  }
+};
 
-    <div class="card" style="border-left-color: #4caf50;">
-        <h3>⚙️ 機器設定値 (確定データ)</h3>
-        <div>🟢 満充電電圧 (Full): <span id="valFullVolt" class="value">--</span> V</div>
-        <div>🟡 放電回復電圧 (Restore): <span id="valRstVolt" class="value">--</span> V</div>
-        <div>🔴 カットオフ電圧 (Cutoff): <span id="valCutVolt" class="value">--</span> V</div>
-    </div>
+export default function App() {
+  const [eqValues, setEqValues] = useState(PRESETS.godBalance.eq);
+  const [activePreset, setActivePreset] = useState('godBalance');
+  const [ultMode, setUltMode] = useState('OFF');
+  const [bassUp, setBassUp] = useState(true);
+  
+  // オーディオ & 拡張機能ステータス
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [drive, setDrive] = useState(1.0); // 音量ブースター
+  const [spatial3D, setSpatial3D] = useState(false); // 3Dステレオ空間拡張
+  const [compressor, setCompressor] = useState(true); // 音割れ防止コンプレッサー
+  
+  const [copied, setCopied] = useState(false);
+  const [audioSourceType, setAudioSourceType] = useState('synth');
+  const [fileName, setFileName] = useState('');
+  const [audioError, setAudioError] = useState('');
 
-    <div class="card" style="border-left-color: #ff9800;">
-        <h3>🔍 検証用 Unconfirmed Rawデータ</h3>
-        <div class="unconfirmed">Reg 3 (放電電流): <span id="rawReg3">--</span></div>
-        <div class="unconfirmed">Reg 6 (Load状態): <span id="rawReg6">--</span></div>
-        <div class="unconfirmed">Reg 7 (Wind状態): <span id="rawReg7">--</span></div>
-        <div class="unconfirmed">Reg 9 (残量%): <span id="rawReg9">--</span></div>
-    </div>
+  // Web Audio API refs
+  const audioCtxRef = useRef(null);
+  const audioBufferRef = useRef(null);
+  const sourceNodeRef = useRef(null);
+  const filtersRef = useRef([]);
+  const gainNodeRef = useRef(null);
+  const compressorRef = useRef(null);
+  const analyserRef = useRef(null);
+  const canvasRef = useRef(null);
+  const synthIntervalRef = useRef(null);
 
-    <h4 style="margin-bottom: 5px; margin-top: 20px;">📡 リアルタイム通信ログ</h4>
-    <div id="log"></div>
-</div>
-
-<script>
-const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const RX_UUID      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-const TX_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-
-function log(msg) {
-    const el = document.getElementById("log");
-    const time = new Date().toLocaleTimeString();
-    el.textContent += `[${time}] ${msg}\n`;
-    el.scrollTop = el.scrollHeight;
-}
-
-// バイト配列を HEX 文字列に変換
-function toHex(uint8Array) {
-    return Array.from(uint8Array).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('-');
-}
-
-// CRC16 Modbus (多項式0xA001, 初期値0xFFFF)
-function crc16Modbus(buffer) {
-    let crc = 0xFFFF;
-    for (let i = 0; i < buffer.length; i++) {
-        crc ^= buffer[i];
-        for (let j = 0; j < 8; j++) {
-            crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1);
-        }
+  // オーディオコンテキスト初期化
+  const initAudioCtx = () => {
+    if (!audioCtxRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtxRef.current = new AudioContext();
     }
-    return new Uint8Array([crc & 0xFF, (crc >> 8) & 0xFF]);
-}
-
-function buildReadRequest(slaveAddr, startAddr, regCount) {
-    const pdu = new Uint8Array([
-        slaveAddr, 0x03, 
-        (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-        (regCount >> 8) & 0xFF, regCount & 0xFF
-    ]);
-    const crc = crc16Modbus(pdu);
-    const req = new Uint8Array(pdu.length + 2);
-    req.set(pdu, 0);
-    req.set(crc, pdu.length);
-    return req;
-}
-
-// 安全な書き込み関数 (Write Without Response が失敗した場合は Write With Response にフォールバック)
-async function safeWrite(characteristic, data) {
-    try {
-        if (characteristic.properties.writeWithoutResponse) {
-            await characteristic.writeValueWithoutResponse(data);
-        } else {
-            await characteristic.writeValueWithResponse(data);
-        }
-    } catch (e) {
-        // フォールバック試行
-        await characteristic.writeValue(data);
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
     }
-}
+    return audioCtxRef.current;
+  };
 
-document.getElementById("btnConnect").addEventListener("click", async () => {
-    try {
-        log("🔍 BLEデバイスを検索中...");
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [SERVICE_UUID]
-        });
+  // イコライザーフィルターパイプライン構築
+  const setupAudioPipeline = (ctx) => {
+    if (filtersRef.current.length > 0) return;
 
-        log("🔗 GATT接続開始: " + device.name);
-        await new Promise(r => setTimeout(r, 600)); // GATT安定用ウェイト
-        const server = await device.gatt.connect();
+    // Analyser Node
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 128;
+    analyserRef.current = analyser;
 
-        log("📡 サービス・特性取得中...");
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        const rxChar = await service.getCharacteristic(RX_UUID);
-        const txChar = await service.getCharacteristic(TX_UUID);
+    // Dynamics Compressor Node
+    const compNode = ctx.createDynamicsCompressor();
+    compNode.threshold.setValueAtTime(-12, ctx.currentTime);
+    compNode.knee.setValueAtTime(30, ctx.currentTime);
+    compNode.ratio.setValueAtTime(12, ctx.currentTime);
+    compNode.attack.setValueAtTime(0.003, ctx.currentTime);
+    compNode.release.setValueAtTime(0.25, ctx.currentTime);
+    compressorRef.current = compNode;
 
-        // Notification 購読設定
-        await rxChar.startNotifications();
-        log("✅ Notification 購読開始成功");
+    // Master Gain Node
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = isMuted ? 0 : volume * drive;
+    gainNodeRef.current = gainNode;
 
-        // データ受信イベント
-        rxChar.addEventListener("characteristicvaluechanged", (event) => {
-            try {
-                // 【原因A対策】 byteOffset と byteLength を指定して安全に Uint8Array 化
-                const target = event.target.value;
-                const data = new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
-                
-                log(`📥 受信 [${data.length}B]: ${toHex(data)}`);
+    // 8-Band Filters
+    const filters = FREQUENCIES.map((freq, index) => {
+      const filter = ctx.createBiquadFilter();
+      if (index === 0) filter.type = 'lowshelf';
+      else if (index === FREQUENCIES.length - 1) filter.type = 'highshelf';
+      else {
+        filter.type = 'peaking';
+        filter.Q.value = 1.4;
+      }
+      filter.frequency.value = freq;
+      filter.gain.value = calculateFinalGain(index, eqValues[index], ultMode, bassUp);
+      return filter;
+    });
+    filtersRef.current = filters;
 
-                if (data.length < 5) return;
-
-                // CRCチェック
-                const payload = data.slice(0, -2);
-                const recCrc = data.slice(-2);
-                const calCrc = crc16Modbus(payload);
-
-                if (recCrc[0] !== calCrc[0] || recCrc[1] !== calCrc[1]) {
-                    log(`❌ CRC不一致: 受信[${toHex(recCrc)}] != 計算[${toHex(calCrc)}]`);
-                    return;
-                }
-
-                const slaveAddr = data[0];
-                const funcCode  = data[1];
-                const byteCount = data[2];
-                const view      = new DataView(data.buffer, data.byteOffset, data.byteLength);
-
-                // A. リアルタイムデータ (SlaveAddr=0x01, FC=0x03, ByteCount=0x14, 全25Bytes)
-                // 【バグ2修正】 slaveAddr === 0x01 のチェックを追加
-                if (slaveAddr === 0x01 && funcCode === 0x03 && byteCount === 0x14 && data.length === 25) {
-                    const batVolt  = (view.getUint16(5) / 10.0).toFixed(1);
-                    const chgAmp   = (view.getUint16(7) / 10.0).toFixed(1);
-                    const temp     = (view.getUint16(11) / 100.0).toFixed(1);
-                    const pvState  = view.getUint16(13) === 1 ? "昼/発電中(1)" : "夜/停止(0)";
-                    const accPower = (view.getUint16(19) / 10.0).toFixed(1);
-
-                    document.getElementById("valBatVolt").textContent  = batVolt;
-                    document.getElementById("valChgAmp").textContent   = chgAmp;
-                    document.getElementById("valTemp").textContent     = temp;
-                    document.getElementById("valPvState").textContent  = pvState;
-                    document.getElementById("valAccPower").textContent = accPower;
-
-                    // Unconfirmed (Raw)
-                    document.getElementById("rawReg3").textContent = view.getUint16(9);
-                    document.getElementById("rawReg6").textContent = view.getUint16(15);
-                    document.getElementById("rawReg7").textContent = view.getUint16(17);
-                    document.getElementById("rawReg9").textContent = view.getUint16(21);
-
-                    log(`✨ リアルタイム値更新成功 (Bat: ${batVolt}V, PV: ${chgAmp}A, Temp: ${temp}℃)`);
-                }
-                // B. 設定値データ (SlaveAddr=0x01, FC=0x03, ByteCount=0x12, 全23Bytes)
-                // 【バグ1修正】 バイトオフセットを 9, 13, 19 に修正
-                else if (slaveAddr === 0x01 && funcCode === 0x03 && byteCount === 0x12 && data.length === 23) {
-                    const fullVolt = (view.getUint16(9) / 10.0).toFixed(1);   // Reg 3
-                    const rstVolt  = (view.getUint16(13) / 10.0).toFixed(1);  // Reg 5
-                    const cutVolt  = (view.getUint16(19) / 10.0).toFixed(1);  // Reg 8
-
-                    document.getElementById("valFullVolt").textContent = fullVolt;
-                    document.getElementById("valRstVolt").textContent  = rstVolt;
-                    document.getElementById("valCutVolt").textContent  = cutVolt;
-
-                    log(`⚙️ 設定値更新成功 (Full: ${fullVolt}V, Restore: ${rstVolt}V, Cutoff: ${cutVolt}V)`);
-                }
-                // C. シリアル番号等 (SlaveAddr=0x00)
-                else if (slaveAddr === 0x00) {
-                    log(`ℹ️ デバイス情報パケットを受信 (スキップ)`);
-                }
-
-            } catch (err) {
-                log(`❌ 受信パースエラー: ${err.message}`);
-            }
-        });
-
-        // ポーリング準備
-        const reqA = buildReadRequest(1, 0x0001, 10); // リアルタイム値要求
-        const reqB = buildReadRequest(1, 0x0000, 9);  // 設定値要求
-        let sendA = true;
-
-        log("🔄 5秒周期のポーリングを開始します");
-
-        // 定期送信ループ
-        setInterval(async () => {
-            if (!device.gatt.connected) return;
-            const req = sendA ? reqA : reqB;
-            sendA = !sendA;
-
-            try {
-                log(`📤 送信: ${toHex(req)}`);
-                await safeWrite(txChar, req);
-            } catch (err) {
-                log(`❌ 送信エラー: ${err.message}`);
-            }
-        }, 5000);
-
-    } catch (err) {
-        log(`❌ GATT接続・初期化エラー: ${err.message}`);
+    // 接続処理: Filters -> Compressor/Gain -> Analyser -> Output
+    for (let i = 0; i < filters.length - 1; i++) {
+      filters[i].connect(filters[i + 1]);
     }
-});
-</script>
-</body>
-</html>
+
+    const lastFilter = filters[filters.length - 1];
+    if (compressor) {
+      lastFi
