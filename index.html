@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-​<script>
+<script>
 tailwind.config = {
 darkMode: 'class',
 theme: {
@@ -26,14 +26,14 @@ sans: ['Inter', 'sans-serif']
 }
 }
 </script>
-​<style>
+<style>
 body {
 touch-action: manipulation;
 user-select: none;
 -webkit-user-select: none;
 background-color: #0b0c10;
 }
-​/* Rotary Knob Styling */
+/* Rotary Knob Styling */
 .knob-container {
 position: relative;
 width: 52px;
@@ -65,14 +65,14 @@ border-radius: 2px;
 transform: translateX(-50%);
 box-shadow: 0 0 4px rgba(248, 113, 113, 0.8);
 }
-​/* Metal/Pedal Textures */
+/* Metal/Pedal Textures */
 .texture-ts { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
 .texture-ds { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); }
 .texture-chorus { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); }
 .texture-delay { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); }
 .texture-amp { background: linear-gradient(180deg, #2d2013 0%, #17100a 100%); }
 .texture-cab { background: radial-gradient(circle, #262626 20%, #171717 80%); }
-​/* LED Glow Effects */
+/* LED Glow Effects */
 .led {
 width: 10px;
 height: 10px;
@@ -89,7 +89,7 @@ box-shadow: 0 0 10px #ef4444, inset 0 1px 2px rgba(255,255,255,0.5);
 background-color: #10b981;
 box-shadow: 0 0 10px #10b981, inset 0 1px 2px rgba(255,255,255,0.5);
 }
-​/* Screw Heads */
+/* Screw Heads */
 .screw {
 width: 8px;
 height: 8px;
@@ -107,7 +107,7 @@ width: 6px;
 height: 1px;
 background: #1f2937;
 }
-​/* Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar { height: 8px; width: 8px; }
 ::-webkit-scrollbar-track { background: #111827; }
 ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
@@ -115,7 +115,7 @@ background: #1f2937;
 </style>
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col font-sans overflow-x-hidden">
-​<!-- Top Navigation Header -->
+<!-- Top Navigation Header -->
 <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 shadow-xl flex flex-wrap items-center justify-between gap-3">
 <div class="flex items-center space-x-3">
 <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center shadow-lg">
@@ -128,21 +128,26 @@ GarageFX <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 tex
 <p class="text-[10px] text-slate-400">USB Audio Engine & Realtime DSP Processor</p>
 </div>
 </div>
-​<!-- Power & Mode Select -->
+<!-- Power & Mode Select -->
 <div class="flex items-center space-x-2 md:space-x-3">
+<!-- Direct Mic Permission Trigger Button -->
+<button id="requestMicBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition-all shadow-md">
+<i class="fa-solid fa-microphone"></i>
+<span>マイク許可を申請</span>
+</button>
 <!-- Input Mode Switcher (Microphone / Demo Sound) -->
 <button id="demoAudioBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-500/50 text-xs font-bold text-indigo-200 transition-all shadow-md">
 <i class="fa-solid fa-music text-amber-400"></i>
-<span id="demoAudioText">デモギター音源: OFF</span>
+<span id="demoAudioText">デモ音源: OFF</span>
 </button>
-​<!-- Input Device Selector -->
+<!-- Input Device Selector -->
 <div class="hidden sm:flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
 <i class="fa-solid fa-plug text-slate-400 text-xs"></i>
 <select id="audioSourceSelect" class="bg-transparent text-xs text-slate-300 focus:outline-none max-w-[130px] truncate">
 <option value="">(既定の入力)</option>
 </select>
 </div>
-​<!-- Preset Selector -->
+<!-- Preset Selector -->
 <div class="flex items-center space-x-1.5 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
 <i class="fa-solid fa-sliders text-amber-400 text-xs"></i>
 <select id="presetSelect" class="bg-transparent text-xs font-semibold text-amber-300 focus:outline-none cursor-pointer">
@@ -153,28 +158,46 @@ GarageFX <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 tex
 <option value="preset_blues">5. Texas Blues Lead</option>
 </select>
 </div>
-​<!-- Main Master Engine Toggle Button -->
+<!-- Main Master Engine Toggle Button -->
 <button id="powerBtn" class="flex items-center space-x-2 px-4 py-2 rounded-lg font-bold text-sm bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg shadow-red-900/40 text-white">
 <i class="fa-solid fa-power-off"></i>
 <span id="powerBtnText">POWER OFF</span>
 </button>
 </div>
 </header>
-​<!-- Notice Banner for Audio Interface -->
-<div id="statusBanner" class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-300 flex items-center justify-between">
+<!-- Notice Banner for Audio Interface -->
+<div id="statusBanner" class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex flex-wrap items-center justify-between gap-2">
 <div class="flex items-center space-x-2 overflow-hidden">
 <i class="fa-solid fa-circle-info shrink-0"></i>
-<span id="bannerText" class="truncate">【準備】POWER ON ボタンを押してマイクへのアクセスを許可してください。</span>
+<span id="bannerText" class="truncate">【準備】「マイク許可を申請」または POWER ON ボタンを押してください。</span>
 </div>
-<div id="latencyBadge" class="font-digital text-[11px] bg-slate-900 px-2 py-0.5 rounded text-emerald-400 border border-slate-800 shrink-0">
+<div class="flex items-center space-x-2 shrink-0">
+<button id="troubleHelpBtn" class="text-[11px] underline text-amber-400 hover:text-amber-200">
+許可が出ない場合の手順
+</button>
+<div id="latencyBadge" class="font-digital text-[11px] bg-slate-900 px-2 py-0.5 rounded text-emerald-400 border border-slate-800">
 Lat: -- ms
 </div>
 </div>
-​<!-- Main Studio Workspace -->
+</div>
+<!-- Troubleshooting Info Box (Hidden by default) -->
+<div id="troubleBox" class="hidden bg-slate-900 border-b border-slate-800 px-4 py-3 text-xs text-slate-300 space-y-2">
+<p class="font-bold text-amber-400 flex items-center justify-between">
+<span><i class="fa-solid fa-triangle-exclamation mr-1.5"></i> マイク許可ポップアップが出ない時のチェックリスト</span>
+<button id="closeTroubleBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+</p>
+<ul class="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
+<li><strong>アドレスバーの鍵マーク(🔒)をタップ:</strong> 「マイク」の設定が「ブロック」になっていないか確認し、「許可」に変更してください。</li>
+<li><strong>HTTPS接続の確認:</strong> セキュリティ制限により、http://（非暗号化通信）ではブラウザがマイク要求をブロックします（https:// でアクセスが必要です）。</li>
+<li><strong>アプリ内ブラウザ制限:</strong> LINEやTwitterなどのアプリ内ブラウザでお使いの場合は、SafariまたはChromeで開き直してください。</li>
+<li><strong>デモ音源機能:</strong> マイクが利用できない場合でも、「デモ音源: OFF」ボタンを押すとギターサウンドでエフェクターを試せます。</li>
+</ul>
+</div>
+<!-- Main Studio Workspace -->
 <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-5">
-​<!-- Top Tools Bar: Tuner & Noise Gate & Master Volume -->
+<!-- Top Tools Bar: Tuner & Noise Gate & Master Volume -->
 <section class="grid grid-cols-1 md:grid-cols-12 gap-4">
-​<!-- Chromatic Tuner Display Card -->
+<!-- Chromatic Tuner Display Card -->
 <div class="md:col-span-5 bg-slate-900 rounded-xl p-3 border border-slate-800 shadow-lg flex flex-col justify-between">
 <div class="flex justify-between items-center mb-1">
 <div class="flex items-center space-x-2">
@@ -185,13 +208,13 @@ Lat: -- ms
 Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</span>
 </button>
 </div>
-​<div class="bg-slate-950 rounded-lg p-2.5 border border-slate-800/80 flex items-center justify-between">
+<div class="bg-slate-950 rounded-lg p-2.5 border border-slate-800/80 flex items-center justify-between">
 <!-- Detected Note -->
 <div class="text-center w-20">
 <div id="tunerNote" class="font-digital text-4xl font-black text-amber-400 tracking-tighter">--</div>
 <div id="tunerFreq" class="text-[10px] text-slate-500 font-digital mt-0.5">0.0 Hz</div>
 </div>
-​<!-- Needle Meter Visualizer -->
+<!-- Needle Meter Visualizer -->
 <div class="flex-1 mx-3 flex flex-col items-center">
 <div class="w-full bg-slate-900 h-6 rounded border border-slate-800 relative overflow-hidden flex items-center justify-center">
 <!-- Center Lock Marker -->
@@ -207,13 +230,13 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 </div>
 </div>
-​<!-- Master I/O & Noise Gate Unit -->
+<!-- Master I/O & Noise Gate Unit -->
 <div class="md:col-span-7 bg-slate-900 rounded-xl p-3 border border-slate-800 shadow-lg flex flex-col justify-between">
 <div class="flex justify-between items-center mb-1">
 <span class="text-xs font-bold tracking-wider text-slate-400 uppercase">Input & Noise Gate Control</span>
 <span class="text-[10px] text-slate-500">Signal Conditioning</span>
 </div>
-​<div class="grid grid-cols-4 gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
+<div class="grid grid-cols-4 gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
 <!-- Input Gain Knob -->
 <div class="flex flex-col items-center">
 <span class="text-[10px] text-slate-400 mb-1">IN GAIN</span>
@@ -222,7 +245,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <span class="text-[10px] font-digital text-amber-400 mt-1 knob-val">1.0x</span>
 </div>
-​<!-- Noise Gate Threshold -->
+<!-- Noise Gate Threshold -->
 <div class="flex flex-col items-center">
 <span class="text-[10px] text-slate-400 mb-1">GATE THRESH</span>
 <div class="knob-container" data-param="gateThresh" data-min="-80" data-max="-20" data-value="-55">
@@ -230,7 +253,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <span class="text-[10px] font-digital text-amber-400 mt-1 knob-val">-55dB</span>
 </div>
-​<!-- Master Output Level -->
+<!-- Master Output Level -->
 <div class="flex flex-col items-center">
 <span class="text-[10px] text-slate-400 mb-1">MASTER VOL</span>
 <div class="knob-container" data-param="masterVol" data-min="0" data-max="1.5" data-value="0.8">
@@ -238,7 +261,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <span class="text-[10px] font-digital text-amber-400 mt-1 knob-val">80%</span>
 </div>
-​<!-- Gate Active Indicator -->
+<!-- Gate Active Indicator -->
 <div class="flex flex-col items-center justify-center space-y-1">
 <span class="text-[9px] text-slate-400">GATE STATUS</span>
 <div id="gateLed" class="led"></div>
@@ -246,8 +269,8 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 </div>
 </div>
-​</section>
-​<!-- Virtual Pedalboard Rack Container -->
+</section>
+<!-- Virtual Pedalboard Rack Container -->
 <section class="bg-brand-rack rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-2xl relative">
 <div class="flex justify-between items-center mb-4">
 <h2 class="text-sm font-black tracking-widest text-slate-400 uppercase flex items-center space-x-2">
@@ -256,9 +279,9 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </h2>
 <span class="text-xs text-slate-500 hidden sm:inline">Signal Flow: Input ➔ Tube OD ➔ Distortion ➔ Chorus ➔ Delay ➔ Amp ➔ Cab</span>
 </div>
-​<!-- Pedals Grid Scroll View -->
+<!-- Pedals Grid Scroll View -->
 <div class="flex space-x-4 overflow-x-auto pb-4 pt-1 px-1">
-​<!-- Pedal 1: Overdrive (TS Tube Screamer Style) -->
+<!-- Pedal 1: Overdrive (TS Tube Screamer Style) -->
 <div class="w-48 shrink-0 texture-ts rounded-2xl p-4 border-2 border-emerald-400/40 shadow-2xl flex flex-col justify-between relative text-slate-100">
 <div class="flex justify-between items-start">
 <span class="screw"></span>
@@ -268,7 +291,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <div id="led-od" class="led active-green"></div>
 </div>
-​<!-- Controls -->
+<!-- Controls -->
 <div class="grid grid-cols-2 gap-2 my-4">
 <div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-emerald-100 mb-1">DRIVE</span>
@@ -276,20 +299,20 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-emerald-100 mb-1">TONE</span>
 <div class="knob-container" data-param="odTone" data-min="500" data-max="7000" data-value="3200">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center col-span-2">
+<div class="flex flex-col items-center col-span-2">
 <span class="text-[9px] font-bold text-emerald-100 mb-1">LEVEL</span>
 <div class="knob-container" data-param="odLevel" data-min="0" data-max="1" data-value="0.7">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
 </div>
-​<!-- Footswitch -->
+<!-- Footswitch -->
 <div class="flex flex-col items-center mt-2">
 <button data-pedal="od" class="pedal-toggle w-16 h-16 rounded-full bg-slate-300 border-4 border-slate-500 shadow-lg active:scale-90 transition-transform flex items-center justify-center">
 <div class="w-10 h-10 rounded-full bg-slate-400 border border-slate-200"></div>
@@ -297,7 +320,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <span class="text-[10px] font-bold mt-2 text-emerald-200">ON / BYPASS</span>
 </div>
 </div>
-​<!-- Pedal 2: Distortion (DS-1 Style) -->
+<!-- Pedal 2: Distortion (DS-1 Style) -->
 <div class="w-48 shrink-0 texture-ds rounded-2xl p-4 border-2 border-orange-400/40 shadow-2xl flex flex-col justify-between relative text-slate-100">
 <div class="flex justify-between items-start">
 <span class="screw"></span>
@@ -307,7 +330,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <div id="led-dist" class="led active-red"></div>
 </div>
-​<!-- Controls -->
+<!-- Controls -->
 <div class="grid grid-cols-2 gap-2 my-4">
 <div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-orange-100 mb-1">DIST</span>
@@ -315,20 +338,20 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-orange-100 mb-1">FILTER</span>
 <div class="knob-container" data-param="distFilter" data-min="400" data-max="8000" data-value="2500">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center col-span-2">
+<div class="flex flex-col items-center col-span-2">
 <span class="text-[9px] font-bold text-orange-100 mb-1">LEVEL</span>
 <div class="knob-container" data-param="distLevel" data-min="0" data-max="1" data-value="0.65">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
 </div>
-​<!-- Footswitch -->
+<!-- Footswitch -->
 <div class="flex flex-col items-center mt-2">
 <button data-pedal="dist" class="pedal-toggle w-16 h-16 rounded-full bg-slate-300 border-4 border-slate-500 shadow-lg active:scale-90 transition-transform flex items-center justify-center">
 <div class="w-10 h-10 rounded-full bg-slate-400 border border-slate-200"></div>
@@ -336,7 +359,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <span class="text-[10px] font-bold mt-2 text-orange-200">ON / BYPASS</span>
 </div>
 </div>
-​<!-- Pedal 3: Chorus Pedal -->
+<!-- Pedal 3: Chorus Pedal -->
 <div class="w-48 shrink-0 texture-chorus rounded-2xl p-4 border-2 border-sky-400/40 shadow-2xl flex flex-col justify-between relative text-slate-100">
 <div class="flex justify-between items-start">
 <span class="screw"></span>
@@ -346,7 +369,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <div id="led-chorus" class="led"></div>
 </div>
-​<!-- Controls -->
+<!-- Controls -->
 <div class="grid grid-cols-2 gap-2 my-4">
 <div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-sky-100 mb-1">RATE</span>
@@ -354,20 +377,20 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-sky-100 mb-1">DEPTH</span>
 <div class="knob-container" data-param="chorusDepth" data-min="0.001" data-max="0.01" data-value="0.003">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center col-span-2">
+<div class="flex flex-col items-center col-span-2">
 <span class="text-[9px] font-bold text-sky-100 mb-1">MIX</span>
 <div class="knob-container" data-param="chorusMix" data-min="0" data-max="1" data-value="0.4">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
 </div>
-​<!-- Footswitch -->
+<!-- Footswitch -->
 <div class="flex flex-col items-center mt-2">
 <button data-pedal="chorus" class="pedal-toggle w-16 h-16 rounded-full bg-slate-300 border-4 border-slate-500 shadow-lg active:scale-90 transition-transform flex items-center justify-center">
 <div class="w-10 h-10 rounded-full bg-slate-400 border border-slate-200"></div>
@@ -375,7 +398,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <span class="text-[10px] font-bold mt-2 text-sky-200">ON / BYPASS</span>
 </div>
 </div>
-​<!-- Pedal 4: Analog Delay Pedal -->
+<!-- Pedal 4: Analog Delay Pedal -->
 <div class="w-48 shrink-0 texture-delay rounded-2xl p-4 border-2 border-purple-400/40 shadow-2xl flex flex-col justify-between relative text-slate-100">
 <div class="flex justify-between items-start">
 <span class="screw"></span>
@@ -385,7 +408,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 <div id="led-delay" class="led"></div>
 </div>
-​<!-- Controls -->
+<!-- Controls -->
 <div class="grid grid-cols-2 gap-2 my-4">
 <div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-purple-100 mb-1">TIME</span>
@@ -393,20 +416,20 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-purple-100 mb-1">REPEAT</span>
 <div class="knob-container" data-param="delayFeedback" data-min="0" data-max="0.85" data-value="0.4">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center col-span-2">
+<div class="flex flex-col items-center col-span-2">
 <span class="text-[9px] font-bold text-purple-100 mb-1">MIX</span>
 <div class="knob-container" data-param="delayMix" data-min="0" data-max="1" data-value="0.3">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
 </div>
-​<!-- Footswitch -->
+<!-- Footswitch -->
 <div class="flex flex-col items-center mt-2">
 <button data-pedal="delay" class="pedal-toggle w-16 h-16 rounded-full bg-slate-300 border-4 border-slate-500 shadow-lg active:scale-90 transition-transform flex items-center justify-center">
 <div class="w-10 h-10 rounded-full bg-slate-400 border border-slate-200"></div>
@@ -414,7 +437,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <span class="text-[10px] font-bold mt-2 text-purple-200">ON / BYPASS</span>
 </div>
 </div>
-​<!-- Amplifier Head Unit -->
+<!-- Amplifier Head Unit -->
 <div class="min-w-[320px] shrink-0 texture-amp rounded-2xl p-4 border-2 border-amber-800/60 shadow-2xl flex flex-col justify-between text-amber-100">
 <div class="flex justify-between items-center border-b border-amber-900/60 pb-2">
 <span class="font-black italic text-lg tracking-wider text-amber-300">VALVE-STAGE 100</span>
@@ -428,7 +451,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </select>
 </div>
 </div>
-​<!-- Amp Tone Controls -->
+<!-- Amp Tone Controls -->
 <div class="grid grid-cols-5 gap-2 my-4">
 <div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-amber-300 mb-1">GAIN</span>
@@ -436,41 +459,41 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-amber-300 mb-1">BASS</span>
 <div class="knob-container" data-param="ampBass" data-min="-12" data-max="12" data-value="2">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-amber-300 mb-1">MIDDLE</span>
 <div class="knob-container" data-param="ampMid" data-min="-12" data-max="12" data-value="-1">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-amber-300 mb-1">TREBLE</span>
 <div class="knob-container" data-param="ampTreble" data-min="-12" data-max="12" data-value="3">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
-​<div class="flex flex-col items-center">
+<div class="flex flex-col items-center">
 <span class="text-[9px] font-bold text-amber-300 mb-1">PRESENCE</span>
 <div class="knob-container" data-param="ampPresence" data-min="1000" data-max="8000" data-value="3500">
 <div class="knob-body"><div class="knob-pointer"></div></div>
 </div>
 </div>
 </div>
-​<div class="flex justify-between items-center pt-2 border-t border-amber-900/60">
+<div class="flex justify-between items-center pt-2 border-t border-amber-900/60">
 <span class="text-[9px] text-amber-500 font-digital">TUBE EMULATION ON</span>
 <div id="led-amp" class="led active-red"></div>
 </div>
 </div>
-​</div>
+</div>
 </section>
-​<!-- Cabinet Simulator & Audio Visualizers -->
+<!-- Cabinet Simulator & Audio Visualizers -->
 <section class="grid grid-cols-1 md:grid-cols-12 gap-4">
-​<!-- Cabinet Impulse Response Contour -->
+<!-- Cabinet Impulse Response Contour -->
 <div class="md:col-span-4 texture-cab rounded-xl p-4 border border-slate-800 shadow-lg flex flex-col justify-between">
 <div class="flex justify-between items-center mb-2">
 <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Speaker Cabinet IR</span>
@@ -481,7 +504,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <option value="bypass">Bypass (Flat Direct)</option>
 </select>
 </div>
-​<div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 my-2 flex items-center space-x-3">
+<div class="bg-slate-950 p-3 rounded-lg border border-slate-800/80 my-2 flex items-center space-x-3">
 <i class="fa-solid fa-bullhorn text-3xl text-amber-500"></i>
 <div class="text-xs text-slate-400">
 <p id="cabDescription" class="font-medium text-slate-200">2x12 Vintage Speaker Contour</p>
@@ -489,7 +512,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 </div>
 </div>
-​<!-- Realtime Oscilloscope & Frequency Spectrum -->
+<!-- Realtime Oscilloscope & Frequency Spectrum -->
 <div class="md:col-span-8 bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-lg flex flex-col justify-between">
 <div class="flex justify-between items-center mb-2">
 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Output Monitor Oscilloscope</span>
@@ -498,15 +521,15 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <button id="visTypeFFT" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Spectrum</button>
 </div>
 </div>
-​<!-- Canvas -->
+<!-- Canvas -->
 <div class="w-full bg-slate-950 h-28 rounded-lg border border-slate-800 relative overflow-hidden">
 <canvas id="visualizerCanvas" class="w-full h-full block"></canvas>
 </div>
 </div>
-​</section>
-​<!-- Backing Track Drum Machine & Audio Recorder -->
+</section>
+<!-- Backing Track Drum Machine & Audio Recorder -->
 <section class="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-lg flex flex-wrap items-center justify-between gap-4">
-​<!-- Backing Drum Loop -->
+<!-- Backing Drum Loop -->
 <div class="flex items-center space-x-3">
 <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-amber-400">
 <i class="fa-solid fa-drum"></i>
@@ -521,7 +544,7 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 </div>
 </div>
 </div>
-​<!-- Quick Riff Recorder -->
+<!-- Quick Riff Recorder -->
 <div class="flex items-center space-x-3">
 <button id="recordBtn" class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-red-400">
 <div id="recIndicator" class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
@@ -531,9 +554,9 @@ Mute Output: <span id="tunerMuteState" class="text-slate-400 font-bold">OFF</spa
 <i class="fa-solid fa-download mr-1"></i> Save WAV
 </button>
 </div>
-​</section>
-​</main>
-​<script>
+</section>
+</main>
+<script>
 /* Global Application State & Web Audio Nodes */
 let audioCtx = null;
 let micStream = null;
@@ -542,7 +565,7 @@ let demoSynthTimer = null;
 let isDemoAudioActive = false;
 let isAudioEngineRunning = false;
 let isMutedForTuner = false;
-​let inputGainNode = null;
+let inputGainNode = null;
 let odShaper = null;
 let odToneFilter = null;
 let odGainNode = null;
@@ -569,8 +592,8 @@ let analyserNode = null;
 let recorderMediaRecorder = null;
 let recordedChunks = [];
 let recordDestination = null;
-​let currentVisType = 'scope';
-​// Bypass states
+let currentVisType = 'scope';
+// Bypass states
 const pedalStates = {
 od: true,
 dist: true,
@@ -579,7 +602,7 @@ delay: false,
 amp: true,
 cab: true
 };
-​// Knobs Parameter Map
+// Knobs Parameter Map
 const knobValues = {
 inputGain: 1.0,
 gateThresh: -55,
@@ -602,7 +625,7 @@ ampMid: -1,
 ampTreble: 3,
 ampPresence: 3500
 };
-​// WaveShaper Curves
+// WaveShaper Curves
 function makeSoftOverdriveCurve(amount) {
 const k = amount;
 const samples = 44100;
@@ -613,7 +636,7 @@ curve[i] = Math.tanh(x * (1 + k * 0.15));
 }
 return curve;
 }
-​function makeHardDistortionCurve(amount) {
+function makeHardDistortionCurve(amount) {
 const k = amount;
 const samples = 44100;
 const curve = new Float32Array(samples);
@@ -625,7 +648,7 @@ curve[i] = Math.max(-clipLevel, Math.min(clipLevel, y));
 }
 return curve;
 }
-​// Ensure Audio Context User Gesture & Creation
+// Ensure Audio Context User Gesture & Creation
 async function ensureAudioContext() {
 if (!audioCtx) {
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -637,20 +660,20 @@ await audioCtx.resume();
 }
 return audioCtx;
 }
-​// Initialize Base Audio Context and Nodes
+// Initialize Base Audio Context and Nodes
 function createAudioGraph() {
 inputGainNode = audioCtx.createGain();
-​// Overdrive Pedal
+// Overdrive Pedal
 odShaper = audioCtx.createWaveShaper();
 odToneFilter = audioCtx.createBiquadFilter();
 odToneFilter.type = 'lowpass';
 odGainNode = audioCtx.createGain();
-​// Distortion Pedal
+// Distortion Pedal
 distShaper = audioCtx.createWaveShaper();
 distFilterNode = audioCtx.createBiquadFilter();
 distFilterNode.type = 'lowpass';
 distGainNode = audioCtx.createGain();
-​// Chorus Pedal Nodes
+// Chorus Pedal Nodes
 chorusDelayNode = audioCtx.createDelay();
 chorusDelayNode.delayTime.value = 0.015;
 chorusLfo = audioCtx.createOscillator();
@@ -661,41 +684,41 @@ chorusLfo.connect(chorusLfoGain);
 chorusLfoGain.connect(chorusDelayNode.delayTime);
 chorusLfo.start();
 chorusMixNode = audioCtx.createGain();
-​// Delay Pedal Nodes
+// Delay Pedal Nodes
 delayNode = audioCtx.createDelay();
 delayFeedbackNode = audioCtx.createGain();
 delayMixNode = audioCtx.createGain();
-​// Amp Head EQ
+// Amp Head EQ
 ampEqBass = audioCtx.createBiquadFilter();
 ampEqBass.type = 'lowshelf';
 ampEqBass.frequency.value = 200;
-​ampEqMid = audioCtx.createBiquadFilter();
+ampEqMid = audioCtx.createBiquadFilter();
 ampEqMid.type = 'peaking';
 ampEqMid.frequency.value = 850;
 ampEqMid.Q.value = 1.0;
-​ampEqTreble = audioCtx.createBiquadFilter();
+ampEqTreble = audioCtx.createBiquadFilter();
 ampEqTreble.type = 'highshelf';
 ampEqTreble.frequency.value = 3500;
-​ampEqPresence = audioCtx.createBiquadFilter();
+ampEqPresence = audioCtx.createBiquadFilter();
 ampEqPresence.type = 'peaking';
 ampEqPresence.frequency.value = 4500;
 ampEqPresence.Q.value = 1.2;
-​ampMasterGain = audioCtx.createGain();
-​// Cabinet Impulse Simulation
+ampMasterGain = audioCtx.createGain();
+// Cabinet Impulse Simulation
 cabFilter1 = audioCtx.createBiquadFilter();
 cabFilter1.type = 'lowpass';
 cabFilter2 = audioCtx.createBiquadFilter();
 cabFilter2.type = 'highpass';
-​// Master Controls
+// Master Controls
 masterVolumeNode = audioCtx.createGain();
 tunerMuteGain = audioCtx.createGain();
 analyserNode = audioCtx.createAnalyser();
 analyserNode.fftSize = 2048;
-​// MediaRecorder Destination
+// MediaRecorder Destination
 recordDestination = audioCtx.createMediaStreamDestination();
-​updateDSPValues();
+updateDSPValues();
 }
-​// Check Audio Devices and populate select box
+// Check Audio Devices and populate select box
 async function populateAudioDevices() {
 if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
 try {
@@ -712,135 +735,143 @@ select.appendChild(opt);
 console.warn("Unable to enumerate audio devices:", e);
 }
 }
-​// Audio Engine Start Sequence
-async function initAudioEngine(deviceId = '') {
-await ensureAudioContext();
-​if (!isDemoAudioActive) {
-// Secure context verification (HTTPS required for mediaDevices in non-localhost)
-if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+// Direct Microphone Permission Request with Diagnostic Reporting
+async function requestMicrophoneDirectly(deviceId = '') {
 const banner = document.getElementById('bannerText');
-if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-banner.textContent = "❌ マイクはHTTPS環境（またはlocalhost）でのみ利用可能です。デモ音源をお試しください。";
-} else {
-banner.textContent = "❌ お使いのブラウザはマイク入力に対応していないか制限されています。";
+// Check if secure context
+if (window.isSecureContext === false && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+banner.textContent = "❌ セキュリティ制限: HTTP接続ではマイクが許可されません。HTTPS環境でお試しください。";
+document.getElementById('troubleBox').classList.remove('hidden');
+return false;
 }
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+banner.textContent = "❌ お使いのブラウザ環境ではマイク機能 API が無効化されています。";
+document.getElementById('troubleBox').classList.remove('hidden');
+return false;
+}
+banner.textContent = "⌛ マイクアクセスを要求中... ブラウザの「許可」を押してください";
+try {
+let constraints = { audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } };
+if (deviceId) constraints.audio.deviceId = { exact: deviceId };
+micStream = await navigator.mediaDevices.getUserMedia(constraints);
+await ensureAudioContext();
+if (sourceNode) try { sourceNode.disconnect(); } catch(e){}
+sourceNode = audioCtx.createMediaStreamSource(micStream);
+banner.textContent = "🎤 マイク/オーディオ入力に正常接続されました！";
+await populateAudioDevices();
 reconnectChain();
 isAudioEngineRunning = true;
-return;
-}
-​try {
-// Attempt user media stream with acoustic constraints relaxed for guitar interfaces
-let constraints = {
-audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false }
-};
-if (deviceId) constraints.audio.deviceId = { exact: deviceId };
-​try {
-micStream = await navigator.mediaDevices.getUserMedia(constraints);
-} catch (firstErr) {
-// Fallback to basic audio constraint if strict constraints fail
-console.warn("Strict audio constraints failed, trying basic audio...", firstErr);
-micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-}
-​if (sourceNode) try { sourceNode.disconnect(); } catch(e){}
-sourceNode = audioCtx.createMediaStreamSource(micStream);
-​document.getElementById('bannerText').textContent = "🎤 マイク/オーディオインターフェースの信号を受信中";
-​// Refresh devices list now that permission is granted
-await populateAudioDevices();
-​} catch (e) {
-console.warn("Microphone access error:", e);
-const banner = document.getElementById('bannerText');
-if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-banner.textContent = "⚠️ マイクのアクセスが拒否されました。ブラウザのアドレスバーの鍵マークから許可してください。";
-} else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
-banner.textContent = "⚠️ マイクやオーディオインターフェースが見つかりません。";
+const powerBtn = document.getElementById('powerBtn');
+powerBtn.className = "flex items-center space-x-2 px-4 py-2 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-900/40 text-white";
+document.getElementById('powerBtnText').textContent = "POWER ON";
+const latency = (audioCtx.baseLatency || 0.005) * 1000;
+document.getElementById('latencyBadge').textContent = Lat: ${latency.toFixed(1)} ms;
+return true;
+} catch (err) {
+console.error("Direct Mic Permission Error:", err);
+document.getElementById('troubleBox').classList.remove('hidden');
+if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+banner.textContent = "⚠️ マイク許可が「拒否/ブロック」されています。アドレスバーの鍵マーク(🔒)から変更してください。";
+} else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+banner.textContent = "⚠️ マイク・オーディオインターフェースが検出されませんでした。";
+} else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+banner.textContent = "⚠️ マイクが他のアプリ(Zoom等)で使用中の可能性があります。";
 } else {
-banner.textContent = ⚠️ マイクエラー: ${e.message || e.name}。デモ音源ボタンでサウンド確認できます。;
+banner.textContent = ⚠️ エラー (${err.name}): ${err.message || 'アクセスできませんでした'};
+}
+return false;
 }
 }
-}
-​reconnectChain();
-​const latency = (audioCtx.baseLatency || 0.005) * 1000;
+// Audio Engine Start Sequence
+async function initAudioEngine(deviceId = '') {
+await ensureAudioContext();
+if (!isDemoAudioActive) {
+await requestMicrophoneDirectly(deviceId);
+} else {
+reconnectChain();
+const latency = (audioCtx.baseLatency || 0.005) * 1000;
 document.getElementById('latencyBadge').textContent = Lat: ${latency.toFixed(1)} ms;
 isAudioEngineRunning = true;
 }
-​// Dual Oscillator Pluck Synthesizer Loop
+}
+// Dual Oscillator Pluck Synthesizer Loop
 function startDemoAudioLoop() {
 stopDemoAudioLoop();
 isDemoAudioActive = true;
-document.getElementById('demoAudioText').textContent = "デモギター音源: ON";
+document.getElementById('demoAudioText').textContent = "デモ音源: ON";
 document.getElementById('demoAudioBtn').className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 border border-emerald-500 text-xs font-bold text-white transition-all shadow-md shadow-emerald-900/50";
-document.getElementById('bannerText').textContent = "🔊 デモギターアルペジオ音源を再生中（各エフェクトを操作して変化を確認できます）";
-​const notes = [164.81, 196.00, 220.00, 246.94, 293.66, 329.63, 392.00, 329.63, 246.94, 196.00]; // E, G, A, B, D, E...
+document.getElementById('bannerText').textContent = "🔊 デモギター音源を再生中（各エフェクトを操作して音の変化を確認できます）";
+const notes = [164.81, 196.00, 220.00, 246.94, 293.66, 329.63, 392.00, 329.63, 246.94, 196.00]; // E, G, A, B, D, E...
 let index = 0;
-​demoSynthTimer = setInterval(() => {
+demoSynthTimer = setInterval(() => {
 if (!audioCtx || !inputGainNode || audioCtx.state !== 'running') return;
-​const freq = notes[index % notes.length];
+const freq = notes[index % notes.length];
 const now = audioCtx.currentTime;
-​const osc1 = audioCtx.createOscillator();
+const osc1 = audioCtx.createOscillator();
 const osc2 = audioCtx.createOscillator();
 const pluckFilter = audioCtx.createBiquadFilter();
 const noteGain = audioCtx.createGain();
-​osc1.type = 'sawtooth';
+osc1.type = 'sawtooth';
 osc1.frequency.setValueAtTime(freq, now);
-​osc2.type = 'triangle';
+osc2.type = 'triangle';
 osc2.frequency.setValueAtTime(freq * 0.5, now);
-​pluckFilter.type = 'lowpass';
+pluckFilter.type = 'lowpass';
 pluckFilter.frequency.setValueAtTime(3200, now);
 pluckFilter.frequency.exponentialRampToValueAtTime(350, now + 0.35);
-​noteGain.gain.setValueAtTime(0.35, now);
+noteGain.gain.setValueAtTime(0.35, now);
 noteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-​osc1.connect(pluckFilter);
+osc1.connect(pluckFilter);
 osc2.connect(pluckFilter);
 pluckFilter.connect(noteGain);
 noteGain.connect(inputGainNode);
-​osc1.start(now);
+osc1.start(now);
 osc2.start(now);
 osc1.stop(now + 0.42);
 osc2.stop(now + 0.42);
-​index++;
+index++;
 }, 240);
 }
-​function stopDemoAudioLoop() {
+function stopDemoAudioLoop() {
 if (demoSynthTimer) {
 clearInterval(demoSynthTimer);
 demoSynthTimer = null;
 }
 isDemoAudioActive = false;
-document.getElementById('demoAudioText').textContent = "デモギター音源: OFF";
+document.getElementById('demoAudioText').textContent = "デモ音源: OFF";
 document.getElementById('demoAudioBtn').className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-500/50 text-xs font-bold text-indigo-200 transition-all shadow-md";
 }
-​function updateDSPValues() {
+function updateDSPValues() {
 if (!audioCtx) return;
-​inputGainNode.gain.value = knobValues.inputGain;
-​// Overdrive
+inputGainNode.gain.value = knobValues.inputGain;
+// Overdrive
 odShaper.curve = pedalStates.od ? makeSoftOverdriveCurve(knobValues.odDrive) : null;
 odToneFilter.frequency.value = knobValues.odTone;
 odGainNode.gain.value = pedalStates.od ? knobValues.odLevel : 1.0;
-​// Distortion
+// Distortion
 distShaper.curve = pedalStates.dist ? makeHardDistortionCurve(knobValues.distGain) : null;
 distFilterNode.frequency.value = knobValues.distFilter;
 distGainNode.gain.value = pedalStates.dist ? knobValues.distLevel : 1.0;
-​// Chorus
+// Chorus
 chorusLfo.frequency.value = knobValues.chorusRate;
 if (chorusLfoGain) chorusLfoGain.gain.value = knobValues.chorusDepth;
 chorusMixNode.gain.value = pedalStates.chorus ? knobValues.chorusMix : 0.0;
-​// Delay
+// Delay
 delayNode.delayTime.value = knobValues.delayTime;
 delayFeedbackNode.gain.value = knobValues.delayFeedback;
 delayMixNode.gain.value = pedalStates.delay ? knobValues.delayMix : 0.0;
-​// Amp
+// Amp
 ampMasterGain.gain.value = knobValues.ampGain;
 ampEqBass.gain.value = knobValues.ampBass;
 ampEqMid.gain.value = knobValues.ampMid;
 ampEqTreble.gain.value = knobValues.ampTreble;
 ampEqPresence.gain.value = (knobValues.ampPresence - 3000) / 200;
-​// Master
+// Master
 masterVolumeNode.gain.value = knobValues.masterVol;
 tunerMuteGain.gain.value = isMutedForTuner ? 0.0 : 1.0;
 }
-​function reconnectChain() {
+function reconnectChain() {
 if (!audioCtx) return;
-​// Disconnect All Graph Links cleanly
+// Disconnect All Graph Links cleanly
 try {
 if (sourceNode) sourceNode.disconnect();
 inputGainNode.disconnect();
@@ -865,26 +896,26 @@ cabFilter2.disconnect();
 masterVolumeNode.disconnect();
 tunerMuteGain.disconnect();
 } catch (e) {}
-​// Connection Step 1: Input (Mic / Real-time Guitar)
+// Connection Step 1: Input (Mic / Real-time Guitar)
 if (sourceNode && !isDemoAudioActive) {
 sourceNode.connect(inputGainNode);
 }
-​let curr = inputGainNode;
-​// OD Stage
+let curr = inputGainNode;
+// OD Stage
 if (pedalStates.od) {
 curr.connect(odShaper);
 odShaper.connect(odToneFilter);
 odToneFilter.connect(odGainNode);
 curr = odGainNode;
 }
-​// Dist Stage
+// Dist Stage
 if (pedalStates.dist) {
 curr.connect(distShaper);
 distShaper.connect(distFilterNode);
 distFilterNode.connect(distGainNode);
 curr = distGainNode;
 }
-​// Chorus Stage
+// Chorus Stage
 if (pedalStates.chorus) {
 const chorusDry = audioCtx.createGain();
 const chorusSum = audioCtx.createGain();
@@ -895,44 +926,44 @@ chorusDry.connect(chorusSum);
 chorusMixNode.connect(chorusSum);
 curr = chorusSum;
 }
-​// Amp Stage
+// Amp Stage
 curr.connect(ampEqBass);
 ampEqBass.connect(ampEqMid);
 ampEqMid.connect(ampEqTreble);
 ampEqTreble.connect(ampEqPresence);
 ampEqPresence.connect(ampMasterGain);
 curr = ampMasterGain;
-​// Delay Stage
+// Delay Stage
 if (pedalStates.delay) {
 const delayDry = audioCtx.createGain();
 const delaySum = audioCtx.createGain();
-​curr.connect(delayDry);
+curr.connect(delayDry);
 curr.connect(delayNode);
-​delayNode.connect(delayFeedbackNode);
+delayNode.connect(delayFeedbackNode);
 delayFeedbackNode.connect(delayNode);
 delayNode.connect(delayMixNode);
-​delayDry.connect(delaySum);
+delayDry.connect(delaySum);
 delayMixNode.connect(delaySum);
 curr = delaySum;
 }
-​// Cab Stage
+// Cab Stage
 updateCabModel();
 if (pedalStates.cab) {
 curr.connect(cabFilter1);
 cabFilter1.connect(cabFilter2);
 curr = cabFilter2;
 }
-​// Master Output & Analyser
+// Master Output & Analyser
 curr.connect(masterVolumeNode);
 masterVolumeNode.connect(tunerMuteGain);
-​tunerMuteGain.connect(analyserNode);
+tunerMuteGain.connect(analyserNode);
 analyserNode.connect(audioCtx.destination);
 analyserNode.connect(recordDestination);
 }
-​function updateCabModel() {
+function updateCabModel() {
 const model = document.getElementById('cabSelect').value;
 const desc = document.getElementById('cabDescription');
-​if (model === '1x12') {
+if (model === '1x12') {
 cabFilter1.frequency.value = 4200;
 cabFilter2.frequency.value = 100;
 desc.textContent = "1x12 Open Back Combo - Balanced mid-range focus";
@@ -952,20 +983,20 @@ pedalStates.cab = false;
 desc.textContent = "Bypass - Raw Direct Signal";
 }
 }
-​// Pitch Detection Algorithms & Tuner
+// Pitch Detection Algorithms & Tuner
 const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-​function autoCorrelate(buf, sampleRate) {
+function autoCorrelate(buf, sampleRate) {
 let SIZE = buf.length;
 let rms = 0;
-​for (let i = 0; i < SIZE; i++) {
+for (let i = 0; i < SIZE; i++) {
 let val = buf[i];
 rms += val * val;
 }
 rms = Math.sqrt(rms / SIZE);
-​const gateLed = document.getElementById('gateLed');
+const gateLed = document.getElementById('gateLed');
 const gateLabel = document.getElementById('gateLabel');
 const gateThreshVal = Math.pow(10, knobValues.gateThresh / 20);
-​if (rms < gateThreshVal) {
+if (rms < gateThreshVal) {
 if (gateLed) gateLed.className = "led active-red";
 if (gateLabel) gateLabel.textContent = "MUTED";
 return -1;
@@ -973,22 +1004,22 @@ return -1;
 if (gateLed) gateLed.className = "led active-green";
 if (gateLabel) gateLabel.textContent = "OPEN";
 }
-​let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+let r1 = 0, r2 = SIZE - 1, thres = 0.2;
 for (let i = 0; i < SIZE / 2; i++) {
 if (Math.abs(buf[i]) < thres) { r1 = i; break; }
 }
 for (let i = 1; i < SIZE / 2; i++) {
 if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
 }
-​buf = buf.slice(r1, r2);
+buf = buf.slice(r1, r2);
 SIZE = buf.length;
-​let c = new Float32Array(SIZE);
+let c = new Float32Array(SIZE);
 for (let i = 0; i < SIZE; i++) {
 for (let j = 0; j < SIZE - i; j++) {
 c[i] = c[i] + buf[j] * buf[j + i];
 }
 }
-​let d = 0;
+let d = 0;
 while (c[d] > c[d + 1]) d++;
 let maxval = -1, maxpos = -1;
 for (let i = d; i < SIZE; i++) {
@@ -998,22 +1029,22 @@ maxpos = i;
 }
 }
 let T0 = maxpos;
-​let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
 let a = (x1 + x3 - 2 * x2) / 2;
 let b = (x3 - x1) / 2;
 if (a) T0 = T0 - b / (2 * a);
-​return sampleRate / T0;
+return sampleRate / T0;
 }
-​function updateTuner() {
+function updateTuner() {
 if (!isAudioEngineRunning || !analyserNode) return;
-​const buf = new Float32Array(1024);
+const buf = new Float32Array(1024);
 analyserNode.getFloatTimeDomainData(buf);
 const pitch = autoCorrelate(buf, audioCtx.sampleRate);
-​const noteEl = document.getElementById('tunerNote');
+const noteEl = document.getElementById('tunerNote');
 const freqEl = document.getElementById('tunerFreq');
 const needleEl = document.getElementById('tunerNeedle');
 const centsEl = document.getElementById('tunerCents');
-​if (pitch === -1 || pitch < 60 || pitch > 1000) {
+if (pitch === -1 || pitch < 60 || pitch > 1000) {
 noteEl.textContent = "--";
 freqEl.textContent = "0.0 Hz";
 needleEl.style.left = "50%";
@@ -1023,13 +1054,13 @@ const noteNum = 12 * (Math.log(pitch / 440) / Math.log(2)) + 69;
 const roundedNote = Math.round(noteNum);
 const noteName = noteStrings[roundedNote % 12];
 const cents = Math.floor((noteNum - roundedNote) * 100);
-​noteEl.textContent = noteName;
+noteEl.textContent = noteName;
 freqEl.textContent = pitch.toFixed(1) + " Hz";
 centsEl.textContent = (cents > 0 ? "+" : "") + cents + " cents";
-​let percent = 50 + cents;
+let percent = 50 + cents;
 percent = Math.max(5, Math.min(95, percent));
 needleEl.style.left = percent + "%";
-​if (Math.abs(cents) < 5) {
+if (Math.abs(cents) < 5) {
 needleEl.className = "absolute w-1.5 h-5 bg-emerald-400 rounded transition-all duration-75 shadow-lg shadow-emerald-500/80";
 noteEl.className = "font-digital text-4xl font-black text-emerald-400 tracking-tighter";
 } else {
@@ -1038,64 +1069,64 @@ noteEl.className = "font-digital text-4xl font-black text-amber-400 tracking-tig
 }
 }
 }
-​// Knob Drag Event Handlers
+// Knob Drag Event Handlers
 document.querySelectorAll('.knob-container').forEach(knob => {
 let startY = 0;
 let startValue = 0;
-​const updateKnobUI = (val) => {
+const updateKnobUI = (val) => {
 const min = parseFloat(knob.dataset.min);
 const max = parseFloat(knob.dataset.max);
 const pct = (val - min) / (max - min);
 const deg = -135 + pct * 270;
-​const pointer = knob.querySelector('.knob-pointer');
+const pointer = knob.querySelector('.knob-pointer');
 if (pointer) {
 pointer.style.transform = translateX(-50%) rotate(${deg}deg);
 pointer.style.transformOrigin = bottom center;
 }
-​const valSpan = knob.parentElement.querySelector('.knob-val');
+const valSpan = knob.parentElement.querySelector('.knob-val');
 if (valSpan) {
 valSpan.textContent = val < 5 ? val.toFixed(1) : Math.round(val);
 }
 };
-​updateKnobUI(parseFloat(knob.dataset.value));
-​const onPointerMove = (e) => {
+updateKnobUI(parseFloat(knob.dataset.value));
+const onPointerMove = (e) => {
 const clientY = e.clientY || (e.touches && e.touches[0].clientY);
 const deltaY = startY - clientY;
 const min = parseFloat(knob.dataset.min);
 const max = parseFloat(knob.dataset.max);
 const step = (max - min) / 120;
-​let newVal = startValue + deltaY * step;
+let newVal = startValue + deltaY * step;
 newVal = Math.max(min, Math.min(max, newVal));
-​knob.dataset.value = newVal;
+knob.dataset.value = newVal;
 knobValues[knob.dataset.param] = newVal;
-​updateKnobUI(newVal);
+updateKnobUI(newVal);
 updateDSPValues();
 };
-​const onPointerUp = () => {
+const onPointerUp = () => {
 window.removeEventListener('mousemove', onPointerMove);
 window.removeEventListener('mouseup', onPointerUp);
 window.removeEventListener('touchmove', onPointerMove);
 window.removeEventListener('touchend', onPointerUp);
 };
-​const onPointerDown = async (e) => {
+const onPointerDown = async (e) => {
 await ensureAudioContext();
 startY = e.clientY || (e.touches && e.touches[0].clientY);
 startValue = parseFloat(knob.dataset.value);
-​window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mousemove', onPointerMove);
 window.addEventListener('mouseup', onPointerUp);
 window.addEventListener('touchmove', onPointerMove);
 window.addEventListener('touchend', onPointerUp);
 };
-​knob.addEventListener('mousedown', onPointerDown);
+knob.addEventListener('mousedown', onPointerDown);
 knob.addEventListener('touchstart', onPointerDown);
 });
-​// Footswitch Toggles
+// Footswitch Toggles
 document.querySelectorAll('.pedal-toggle').forEach(btn => {
 btn.addEventListener('click', async () => {
 await ensureAudioContext();
 const pedal = btn.dataset.pedal;
 pedalStates[pedal] = !pedalStates[pedal];
-​const led = document.getElementById(led-${pedal});
+const led = document.getElementById(led-${pedal});
 if (led) {
 if (pedalStates[pedal]) {
 led.className = pedal === 'dist' ? "led active-red" : "led active-green";
@@ -1103,11 +1134,11 @@ led.className = pedal === 'dist' ? "led active-red" : "led active-green";
 led.className = "led";
 }
 }
-​updateDSPValues();
+updateDSPValues();
 reconnectChain();
 });
 });
-​// Presets Configuration
+// Presets Configuration
 const presets = {
 preset_clean: {
 od: false, dist: false, chorus: true, delay: true,
@@ -1135,16 +1166,16 @@ knobs: { odDrive: 42, odTone: 2800, delayTime: 0.18, delayFeedback: 0.25, delayM
 amp: 'crunch', cab: '1x12'
 }
 };
-​document.getElementById('presetSelect').addEventListener('change', async (e) => {
+document.getElementById('presetSelect').addEventListener('change', async (e) => {
 await ensureAudioContext();
 const p = presets[e.target.value];
 if (!p) return;
-​Object.assign(pedalStates, { od: p.od, dist: p.dist, chorus: p.chorus, delay: p.delay });
-​['od', 'dist', 'chorus', 'delay'].forEach(key => {
+Object.assign(pedalStates, { od: p.od, dist: p.dist, chorus: p.chorus, delay: p.delay });
+['od', 'dist', 'chorus', 'delay'].forEach(key => {
 const led = document.getElementById(led-${key});
 if (led) led.className = pedalStates[key] ? (key === 'dist' ? "led active-red" : "led active-green") : "led";
 });
-​if (p.knobs) {
+if (p.knobs) {
 Object.keys(p.knobs).forEach(k => {
 knobValues[k] = p.knobs[k];
 const el = document.querySelector([data-param="${k}"]);
@@ -1160,45 +1191,45 @@ if (valSpan) valSpan.textContent = p.knobs[k] < 5 ? p.knobs[k].toFixed(1) : Math
 }
 });
 }
-​if (p.amp) document.getElementById('ampModelSelect').value = p.amp;
+if (p.amp) document.getElementById('ampModelSelect').value = p.amp;
 if (p.cab) document.getElementById('cabSelect').value = p.cab;
-​updateDSPValues();
+updateDSPValues();
 reconnectChain();
 });
-​// Oscilloscope & Spectrum Visualizer Loop
+// Oscilloscope & Spectrum Visualizer Loop
 const canvas = document.getElementById('visualizerCanvas');
 const ctx = canvas.getContext('2d');
-​function drawVisualizer() {
+function drawVisualizer() {
 requestAnimationFrame(drawVisualizer);
 updateTuner();
-​if (!analyserNode) return;
-​const w = canvas.width = canvas.parentElement.clientWidth;
+if (!analyserNode) return;
+const w = canvas.width = canvas.parentElement.clientWidth;
 const h = canvas.height = canvas.parentElement.clientHeight;
-​ctx.fillStyle = '#020617';
+ctx.fillStyle = '#020617';
 ctx.fillRect(0, 0, w, h);
-​if (currentVisType === 'scope') {
+if (currentVisType === 'scope') {
 const data = new Uint8Array(analyserNode.fftSize);
 analyserNode.getByteTimeDomainData(data);
-​ctx.lineWidth = 2;
+ctx.lineWidth = 2;
 ctx.strokeStyle = '#f59e0b';
 ctx.beginPath();
-​const sliceWidth = w / data.length;
+const sliceWidth = w / data.length;
 let x = 0;
-​for (let i = 0; i < data.length; i++) {
+for (let i = 0; i < data.length; i++) {
 const v = data[i] / 128.0;
 const y = (v * h) / 2;
-​if (i === 0) ctx.moveTo(x, y);
+if (i === 0) ctx.moveTo(x, y);
 else ctx.lineTo(x, y);
-​x += sliceWidth;
+x += sliceWidth;
 }
-​ctx.lineTo(w, h / 2);
+ctx.lineTo(w, h / 2);
 ctx.stroke();
 } else {
 const freqData = new Uint8Array(analyserNode.frequencyBinCount);
 analyserNode.getByteFrequencyData(freqData);
-​const barWidth = (w / freqData.length) * 2.5;
+const barWidth = (w / freqData.length) * 2.5;
 let x = 0;
-​for (let i = 0; i < freqData.length; i++) {
+for (let i = 0; i < freqData.length; i++) {
 const barHeight = (freqData[i] / 255) * h;
 ctx.fillStyle = rgb(${freqData[i] + 100}, 116, 139);
 ctx.fillRect(x, h - barHeight, barWidth, barHeight);
@@ -1206,36 +1237,42 @@ x += barWidth + 1;
 }
 }
 }
-​// Visualizer Buttons
+// Direct Request Mic Button
+document.getElementById('requestMicBtn').addEventListener('click', async () => {
+const selectedDevice = document.getElementById('audioSourceSelect').value;
+await requestMicrophoneDirectly(selectedDevice);
+});
+// Trouble Box Toggle Controls
+document.getElementById('troubleHelpBtn').addEventListener('click', () => {
+document.getElementById('troubleBox').classList.toggle('hidden');
+});
+document.getElementById('closeTroubleBtn').addEventListener('click', () => {
+document.getElementById('troubleBox').classList.add('hidden');
+});
+// Visualizer Buttons
 document.getElementById('visTypeScope').addEventListener('click', () => {
 currentVisType = 'scope';
 document.getElementById('visTypeScope').className = "px-2 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700";
 document.getElementById('visTypeFFT').className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
 });
-​document.getElementById('visTypeFFT').addEventListener('click', () => {
+document.getElementById('visTypeFFT').addEventListener('click', () => {
 currentVisType = 'fft';
 document.getElementById('visTypeFFT').className = "px-2 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700";
 document.getElementById('visTypeScope').className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
 });
-​// Tuner Mute Toggle
+// Tuner Mute Toggle
 document.getElementById('tunerMuteBtn').addEventListener('click', () => {
 isMutedForTuner = !isMutedForTuner;
 document.getElementById('tunerMuteState').textContent = isMutedForTuner ? "ON" : "OFF";
 document.getElementById('tunerMuteState').className = isMutedForTuner ? "text-emerald-400 font-bold" : "text-slate-400 font-bold";
 updateDSPValues();
 });
-​// Master Power Toggle
+// Master Power Toggle
 const powerBtn = document.getElementById('powerBtn');
 powerBtn.addEventListener('click', async () => {
 if (!isAudioEngineRunning) {
-try {
 const selectedDevice = document.getElementById('audioSourceSelect').value;
 await initAudioEngine(selectedDevice);
-​powerBtn.className = "flex items-center space-x-2 px-4 py-2 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-900/40 text-white";
-document.getElementById('powerBtnText').textContent = "POWER ON";
-} catch (e) {
-alert('オーディオエンジンの起動エラー: ' + e.message);
-}
 } else {
 stopDemoAudioLoop();
 if (audioCtx) await audioCtx.close();
@@ -1245,7 +1282,7 @@ powerBtn.className = "flex items-center space-x-2 px-4 py-2 rounded-lg font-bold
 document.getElementById('powerBtnText').textContent = "POWER OFF";
 }
 });
-​// Demo Audio Toggle Button
+// Demo Audio Toggle Button
 document.getElementById('demoAudioBtn').addEventListener('click', async () => {
 await ensureAudioContext();
 if (!isAudioEngineRunning) {
@@ -1253,23 +1290,23 @@ isAudioEngineRunning = true;
 powerBtn.className = "flex items-center space-x-2 px-4 py-2 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-900/40 text-white";
 document.getElementById('powerBtnText').textContent = "POWER ON";
 }
-​if (isDemoAudioActive) {
+if (isDemoAudioActive) {
 stopDemoAudioLoop();
 } else {
 startDemoAudioLoop();
 }
 reconnectChain();
 });
-​// Riff Recording Logic
+// Riff Recording Logic
 const recordBtn = document.getElementById('recordBtn');
 let isRecording = false;
-​recordBtn.addEventListener('click', async () => {
+recordBtn.addEventListener('click', async () => {
 await ensureAudioContext();
 if (!isAudioEngineRunning) {
 alert('最初にPOWER ONでエフェクターを起動してください。');
 return;
 }
-​if (!isRecording) {
+if (!isRecording) {
 recordedChunks = [];
 recorderMediaRecorder = new MediaRecorder(recordDestination.stream);
 recorderMediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
@@ -1286,7 +1323,7 @@ a.download = Guitar_Riff_${Date.now()}.wav;
 a.click();
 };
 };
-​recorderMediaRecorder.start();
+recorderMediaRecorder.start();
 isRecording = true;
 document.getElementById('recBtnText').textContent = "Stop Recording";
 document.getElementById('recIndicator').className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-ping";
@@ -1297,21 +1334,21 @@ document.getElementById('recBtnText').textContent = "Record Riff";
 document.getElementById('recIndicator').className = "w-2.5 h-2.5 rounded-full bg-red-500";
 }
 });
-​// Amp model select event
+// Amp model select event
 document.getElementById('ampModelSelect').addEventListener('change', () => {
 updateDSPValues();
 });
-​// Cabinet select event
+// Cabinet select event
 document.getElementById('cabSelect').addEventListener('change', () => {
 reconnectChain();
 });
-​// Change input device event
+// Change input device event
 document.getElementById('audioSourceSelect').addEventListener('change', (e) => {
 if (isAudioEngineRunning && !isDemoAudioActive) {
 initAudioEngine(e.target.value);
 }
 });
-​// Start Animation Loop
+// Start Animation Loop
 drawVisualizer();
 </script>
 </body>
