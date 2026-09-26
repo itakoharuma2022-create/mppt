@@ -1,164 +1,144 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Play, Pause, Volume2, VolumeX, Sparkles, Sliders, Zap, 
-  Disc, Radio, Share2, Copy, Check, Music, Shield, RefreshCw,
-  SlidersHorizontal, Waves, RadioTower, Maximize2, AlertCircle
-} from 'lucide-react';
-
-const FREQUENCIES = [80, 150, 300, 600, 1200, 2500, 5000, 12000];
-const FREQ_LABELS = ['80Hz', '150Hz', '300Hz', '600Hz', '1.2kHz', '2.5kHz', '5kHz', '12kHz'];
-
-const PRESETS = {
-  godBalance: {
-    name: '神バランス (神EQ)',
-    desc: '野外・室内を問わずクリアなボーカルと深い低音を両立した決定版',
-    eq: [5, 3, 0, -1, 1, 0, 2, 4],
-    bassUp: true,
-    ult: 'OFF'
-  },
-  ult1: {
-    name: 'ULT 1 (Deep Sub-Bass)',
-    desc: 'Sony ULT風：地鳴りのようなディープで包み込む超低音',
-    eq: [6, 2, -1, -2, 0, 1, 2, 3],
-    bassUp: true,
-    ult: 'ULT1'
-  },
-  ult2: {
-    name: 'ULT 2 (Power Punch Bass)',
-    desc: 'Sony ULT風：クラブやフェスのようなキレのある爆発的重低音',
-    eq: [4, 6, 1, -1, 1, 2, 4, 5],
-    bassUp: true,
-    ult: 'ULT2'
-  },
-  sonyUltField: {
-    name: 'Sony ULT Field 7風',
-    desc: 'Sony特有のダイナミックレンジと圧倒的低域パワーを再現',
-    eq: [6, 4, -1, -2, 0, 2, 3, 5],
-    bassUp: true,
-    ult: 'ULT2'
-  },
-  cinema3d: {
-    name: '映画・立体シネマ',
-    desc: '重低音の臨場感とセリフ（中音域）の聞き取りやすさを強化',
-    eq: [6, 3, -1, 1, 2, 3, 4, 5],
-    bassUp: true,
-    ult: 'ULT1'
-  },
-  jblBoombox: {
-    name: 'JBL Boombox 3風',
-    desc: 'アタッキーで輪郭のはっきりしたメリハリのあるドンシャリ',
-    eq: [5, 4, -2, 0, 2, 1, 4, 3],
-    bassUp: false,
-    ult: 'OFF'
-  },
-  vocalClear: {
-    name: 'クリアボーカル',
-    desc: '重低音に埋もれがちな中高域・歌声をくっきりと際立たせる',
-    eq: [1, 0, 2, 4, 3, 2, 3, 2],
-    bassUp: false,
-    ult: 'OFF'
-  },
-  nightMode: {
-    name: 'ナイトモード (近所迷惑防止)',
-    desc: '超低音の響きを抑えつつ、小音量でも聴き取りやすい設定',
-    eq: [-4, -2, 1, 2, 2, 1, 0, -1],
-    bassUp: false,
-    ult: 'OFF'
-  },
-  flat: {
-    name: 'フラット (原音)',
-    desc: 'すべての帯域を0dBにフラット調整',
-    eq: [0, 0, 0, 0, 0, 0, 0, 0],
-    bassUp: false,
-    ult: 'OFF'
-  }
-};
-
-export default function App() {
-  const [eqValues, setEqValues] = useState(PRESETS.godBalance.eq);
-  const [activePreset, setActivePreset] = useState('godBalance');
-  const [ultMode, setUltMode] = useState('OFF');
-  const [bassUp, setBassUp] = useState(true);
+```html
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GarageFX Studio - Web Guitar Processor</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   
-  // オーディオ & 拡張機能ステータス
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [drive, setDrive] = useState(1.0); // 音量ブースター
-  const [spatial3D, setSpatial3D] = useState(false); // 3Dステレオ空間拡張
-  const [compressor, setCompressor] = useState(true); // 音割れ防止コンプレッサー
-  
-  const [copied, setCopied] = useState(false);
-  const [audioSourceType, setAudioSourceType] = useState('synth');
-  const [fileName, setFileName] = useState('');
-  const [audioError, setAudioError] = useState('');
-
-  // Web Audio API refs
-  const audioCtxRef = useRef(null);
-  const audioBufferRef = useRef(null);
-  const sourceNodeRef = useRef(null);
-  const filtersRef = useRef([]);
-  const gainNodeRef = useRef(null);
-  const compressorRef = useRef(null);
-  const analyserRef = useRef(null);
-  const canvasRef = useRef(null);
-  const synthIntervalRef = useRef(null);
-
-  // オーディオコンテキスト初期化
-  const initAudioCtx = () => {
-    if (!audioCtxRef.current) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtxRef.current = new AudioContext();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-    return audioCtxRef.current;
-  };
-
-  // イコライザーフィルターパイプライン構築
-  const setupAudioPipeline = (ctx) => {
-    if (filtersRef.current.length > 0) return;
-
-    // Analyser Node
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 128;
-    analyserRef.current = analyser;
-
-    // Dynamics Compressor Node
-    const compNode = ctx.createDynamicsCompressor();
-    compNode.threshold.setValueAtTime(-12, ctx.currentTime);
-    compNode.knee.setValueAtTime(30, ctx.currentTime);
-    compNode.ratio.setValueAtTime(12, ctx.currentTime);
-    compNode.attack.setValueAtTime(0.003, ctx.currentTime);
-    compNode.release.setValueAtTime(0.25, ctx.currentTime);
-    compressorRef.current = compNode;
-
-    // Master Gain Node
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = isMuted ? 0 : volume * drive;
-    gainNodeRef.current = gainNode;
-
-    // 8-Band Filters
-    const filters = FREQUENCIES.map((freq, index) => {
-      const filter = ctx.createBiquadFilter();
-      if (index === 0) filter.type = 'lowshelf';
-      else if (index === FREQUENCIES.length - 1) filter.type = 'highshelf';
-      else {
-        filter.type = 'peaking';
-        filter.Q.value = 1.4;
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { red: '#ef4444', orange: '#f97316', green: '#10b981', dark: '#121318', rack: '#1e2028' }
+          },
+          fontFamily: {
+            digital: ['Orbitron', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
       }
-      filter.frequency.value = freq;
-      filter.gain.value = calculateFinalGain(index, eqValues[index], ultMode, bassUp);
-      return filter;
-    });
-    filtersRef.current = filters;
+    }
+  </script>
 
-    // 接続処理: Filters -> Compressor/Gain -> Analyser -> Output
-    for (let i = 0; i < filters.length - 1; i++) {
-      filters[i].connect(filters[i + 1]);
+  <style>
+    body {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      background-color: #0b0c10;
+    }
+    
+    /* Rotary Knob Styling */
+    .knob-container {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      cursor: ns-resize;
+    }
+    .knob-body {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #4a4d5a, #1a1b22 80%);
+      border: 2px solid #5a5d6e;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,255,255,0.2);
+      position: relative;
+      transition: transform 0.05s ease-out;
+    }
+    .knob-pointer {
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      width: 3px;
+      height: 14px;
+      background: #f87171;
+      border-radius: 2px;
+      transform: translateX(-50%);
+      box-shadow: 0 0 4px rgba(248, 113, 113, 0.8);
     }
 
-    const lastFilter = filters[filters.length - 1];
-    if (compressor) {
-      lastFi
+    /* Metal/Pedal Textures */
+    .texture-ts { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+    .texture-ds { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); }
+    .texture-chorus { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); }
+    .texture-delay { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); }
+    .texture-amp { background: linear-gradient(180deg, #2d2013 0%, #17100a 100%); }
+    .texture-cab { background: radial-gradient(circle, #262626 20%, #171717 80%); }
+
+    /* LED Glow Effects */
+    .led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #374151;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+      transition: all 0.2s ease;
+    }
+    .led.active-red {
+      background-color: #ef4444;
+      box-shadow: 0 0 10px #ef4444, inset 0 1px 2px rgba(255,255,255,0.5);
+    }
+    .led.active-green {
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981, inset 0 1px 2px rgba(255,255,255,0.5);
+    }
+
+    /* Screw Heads */
+    .screw {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4b5563;
+      box-shadow: inset 1px 1px 2px rgba(0,0,0,0.8), 0.5px 0.5px 1px rgba(255,255,255,0.2);
+      position: relative;
+    }
+    .screw::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 1px;
+      width: 6px;
+      height: 1px;
+      background: #1f2937;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: #111827; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col font-sans overflow-x-hidden">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 shadow-xl flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center shadow-lg">
+        <i class="fa-solid fa-guitar text-slate-950 font-bold text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-black tracking-wide bg-gradient-to-r from-red-400 via-amber-300 to-yellow-500 bg-clip-text text-transparent">
+          GarageFX <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">PRO</span>
+        </h1>
+        <p class="text-[10px] text-slate-400">USB Audio Engine & Realtime DSP Processor</p>
+      </div>
+    </div>
+
+    <!-- Power & Mode Select -->
+    <div class="flex items-center space-x-2 md:space-x-3">
+      <!-- Input Mode Switcher (Microphone / Demo Sound) -->
+      <button id="demoAudioBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-i
